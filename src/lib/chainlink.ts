@@ -119,12 +119,13 @@ class ChainlinkDataStreams {
   private async handleReport(report: any) {
     try {
       console.debug("[Chainlink] Received report payload", report?.feedID ?? "unknown")
+      const decoded = report?.fullReport && report?.feedID ? decodeReport(report.fullReport, report.feedID) : report
       const decodedReport: any =
-        report?.fullReport && report?.feedID ? decodeReport(report.fullReport, report.feedID) : report
+        decoded?.report ?? decoded?.payload ?? decoded
 
-      const feedId = decodedReport.feedID
+      const feedId = decodedReport?.feedID ?? decoded?.feedID ?? report?.feedID
       if (!feedId) {
-        console.debug("[Chainlink] Report without feedID ignored")
+        console.debug("[Chainlink] Report without feedID ignored", JSON.stringify(decoded))
         return
       }
 
@@ -152,20 +153,24 @@ class ChainlinkDataStreams {
         }
       }
 
-      if (decodedReport.price !== undefined) {
+      if (decodedReport?.price !== undefined) {
         price = normalizeInt192(decodedReport.price)
-      } else if (decodedReport.midPrice !== undefined) {
+      } else if (decodedReport?.median !== undefined) {
+        price = normalizeInt192(decodedReport.median)
+      } else if (decodedReport?.midPrice !== undefined) {
         price = normalizeInt192(decodedReport.midPrice)
-      } else if (decodedReport.bid !== undefined && decodedReport.ask !== undefined) {
+      } else if (decodedReport?.bid !== undefined && decodedReport?.ask !== undefined) {
         const bid = normalizeInt192(decodedReport.bid)
         const ask = normalizeInt192(decodedReport.ask)
         if (bid !== undefined && ask !== undefined) {
           price = (bid + ask) / 2
         }
-      } else if (decodedReport.bid !== undefined) {
+      } else if (decodedReport?.bid !== undefined) {
         price = normalizeInt192(decodedReport.bid)
-      } else if (decodedReport.ask !== undefined) {
+      } else if (decodedReport?.ask !== undefined) {
         price = normalizeInt192(decodedReport.ask)
+      } else if (decoded?.price !== undefined) {
+        price = normalizeInt192(decoded.price)
       }
 
       // Extraire le timestamp
@@ -173,6 +178,10 @@ class ChainlinkDataStreams {
         timestamp = decodedReport.observationsTimestamp * 1000 // Convertir en ms
       } else if ("validFromTimestamp" in decodedReport && typeof decodedReport.validFromTimestamp === "number") {
         timestamp = decodedReport.validFromTimestamp * 1000
+      } else if ("observationsTimestamp" in decoded && typeof decoded.observationsTimestamp === "number") {
+        timestamp = decoded.observationsTimestamp * 1000
+      } else if ("validFromTimestamp" in decoded && typeof decoded.validFromTimestamp === "number") {
+        timestamp = decoded.validFromTimestamp * 1000
       }
 
       if (typeof price !== "number" || !price || isNaN(price)) {
