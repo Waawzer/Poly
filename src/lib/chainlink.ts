@@ -153,10 +153,21 @@ class ChainlinkDataStreams {
       let price: number | undefined
       let timestamp: number = Date.now()
 
-      const parsePriceValue = (value: unknown, decimals: number) => {
+      const parsePriceValue = (value: unknown, decimalsFallback: number) => {
         try {
-          const big = typeof value === "bigint" ? value : BigInt(value as string)
-          return Number(big) / Math.pow(10, decimals)
+          if (value && typeof value === "object") {
+            const raw = (value as any).price ?? (value as any).value ?? (value as any).raw ?? (value as any).amount
+            const exp = (value as any).exponent ?? (value as any).expo ?? (value as any).decimals
+            if (raw !== undefined) {
+              const bigObj = typeof raw === "bigint" ? raw : BigInt(String(raw))
+              if (typeof exp === "number") {
+                return Number(bigObj) * Math.pow(10, exp)
+              }
+              return Number(bigObj) / Math.pow(10, decimalsFallback)
+            }
+          }
+          const big = typeof value === "bigint" ? value : BigInt(String(value))
+          return Number(big) / Math.pow(10, decimalsFallback)
         } catch (err) {
           console.warn("[Chainlink] Failed to parse price value", value, err)
           return undefined
@@ -171,7 +182,7 @@ class ChainlinkDataStreams {
             return parsed
           }
         }
-        console.warn("[Chainlink] Unable to parse price with known scales", value)
+        console.warn("[Chainlink] Unable to parse price with known scales", JSON.stringify(value))
         return undefined
       }
 
@@ -198,7 +209,7 @@ class ChainlinkDataStreams {
       }
 
       if (typeof price !== "number" || !price || isNaN(price)) {
-        console.debug(`[Chainlink] Invalid price in report for ${crypto}`)
+        console.debug(`[Chainlink] Invalid price in report for ${crypto} ->`, JSON.stringify(decodedReport))
         return
       }
 
