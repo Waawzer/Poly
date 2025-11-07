@@ -159,7 +159,8 @@ class ChainlinkDataStreams {
           } else {
             throw new Error("Unsupported price value type")
           }
-          const abs = Number(big >= 0n ? big : -big)
+          const zero = BigInt(0)
+          const abs = Number(big >= zero ? big : -big)
           let divider = 1e8
           if (abs > 1e18) {
             divider = 1e18
