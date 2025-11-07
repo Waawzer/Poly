@@ -304,7 +304,7 @@ export class TimedStrategyRunner {
 
     const startMinute = this.strategy.tradingWindowStartMinute
     const startSecond = this.strategy.tradingWindowStartSecond
-    const endMinute = Math.max(startMinute, this.strategy.tradingWindowEndMinute)
+    const endMinute = Math.min(14, Math.max(startMinute, this.strategy.tradingWindowEndMinute ?? 14))
 
     // Compute absolute timestamps for window boundaries
     const windowStart =

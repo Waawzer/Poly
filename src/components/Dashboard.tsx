@@ -44,26 +44,26 @@ export function Dashboard() {
       {/* Stats Bar */}
       <StatsBar />
 
-      {/* Main Content: Strategies List (Left) and Strategy Creator (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Strategies List - Left Side (2/3 width) */}
-        <div className="lg:col-span-2">
-          <StrategiesTable />
-        </div>
-
-        {/* Strategy Creator - Right Side (1/3 width) */}
-        <div className="lg:col-span-1">
-          <Card className="sticky top-4 border-border/60 bg-card/80 backdrop-blur-xl shadow-[var(--shadow-glow)]">
+      {/* Main Content: Strategy Creator (Left) and Strategies List (Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_2fr] gap-6">
+        {/* Strategy Creator - Left Side */}
+        <div className="lg:col-start-1">
+          <Card className="border-border/60 bg-card/80 backdrop-blur-xl shadow-[var(--shadow-glow)]">
             <CardHeader>
               <CardTitle className="text-lg font-semibold tracking-wide text-foreground">Create Strategy</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                Set up an automated trading strategy
+                Configure and deploy a new automated play in under a minute.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <StrategyForm />
             </CardContent>
           </Card>
+        </div>
+
+        {/* Strategies List - Right Side */}
+        <div className="lg:col-start-2">
+          <StrategiesTable />
         </div>
       </div>
     </section>

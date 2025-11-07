@@ -26,6 +26,23 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
+    // Sanitize window bounds if provided
+    if (
+      updates.tradingWindowStartMinute !== undefined ||
+      updates.tradingWindowEndMinute !== undefined
+    ) {
+      const startMinute = updates.tradingWindowStartMinute !== undefined
+        ? Number(updates.tradingWindowStartMinute)
+        : strategy.tradingWindowStartMinute
+
+      const endMinuteRaw = updates.tradingWindowEndMinute !== undefined
+        ? Number(updates.tradingWindowEndMinute)
+        : strategy.tradingWindowEndMinute ?? 14
+
+      updates.tradingWindowStartMinute = Math.min(Math.max(startMinute, 0), 14)
+      updates.tradingWindowEndMinute = Math.min(15, Math.max(updates.tradingWindowStartMinute, endMinuteRaw))
+    }
+
     // Update the strategy
     const updatedStrategy = await Strategy.findByIdAndUpdate(id, updates, { new: true })
 
@@ -52,6 +69,7 @@ export async function PATCH(
         orderPrice: updatedStrategy.orderPrice,
         tradingWindowStartMinute: updatedStrategy.tradingWindowStartMinute,
         tradingWindowStartSecond: updatedStrategy.tradingWindowStartSecond,
+        tradingWindowEndMinute: updatedStrategy.tradingWindowEndMinute ?? 14,
         buyUpOnly: updatedStrategy.buyUpOnly ?? false,
         enabled: updatedStrategy.enabled,
         createdAt: updatedStrategy.createdAt,

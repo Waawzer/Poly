@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
         orderPrice: strategy.orderPrice ?? null, // null si non défini (pour les anciennes stratégies)
         tradingWindowStartMinute: strategy.tradingWindowStartMinute,
         tradingWindowStartSecond: strategy.tradingWindowStartSecond,
+        tradingWindowEndMinute: strategy.tradingWindowEndMinute ?? 14,
         buyUpOnly: strategy.buyUpOnly ?? false,
         enabled: strategy.enabled,
         createdAt: strategy.createdAt,
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
       orderPrice,
       tradingWindowStartMinute,
       tradingWindowStartSecond,
+      tradingWindowEndMinute = 14,
       buyUpOnly = false,
       enabled = true,
     } = await request.json()
@@ -72,6 +74,18 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    if (tradingWindowEndMinute < 0 || tradingWindowEndMinute > 15) {
+      return NextResponse.json(
+        { error: "tradingWindowEndMinute must be between 0 and 15" },
+        { status: 400 }
+      )
+    }
+
+    const endMinuteValue = Math.min(
+      15,
+      Math.max(tradingWindowStartMinute, tradingWindowEndMinute)
+    )
 
     // Valider orderPrice si fourni
     if (orderPrice !== undefined && (isNaN(orderPrice) || orderPrice < 0 || orderPrice > 100)) {
@@ -95,6 +109,7 @@ export async function POST(request: NextRequest) {
       orderPrice: orderPriceValue,
       tradingWindowStartMinute,
       tradingWindowStartSecond,
+      tradingWindowEndMinute: endMinuteValue,
       buyUpOnly,
       enabled,
     })
@@ -116,6 +131,7 @@ export async function POST(request: NextRequest) {
         orderPrice: strategy.orderPrice ?? null,
         tradingWindowStartMinute: strategy.tradingWindowStartMinute,
         tradingWindowStartSecond: strategy.tradingWindowStartSecond,
+        tradingWindowEndMinute: strategy.tradingWindowEndMinute ?? 14,
         buyUpOnly: strategy.buyUpOnly ?? false,
         enabled: strategy.enabled,
         createdAt: strategy.createdAt,

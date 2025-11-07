@@ -9,6 +9,7 @@ export interface IStrategy extends Document {
   orderPrice: number // Prix d'ordre en centimes (ex: 50 pour 0.5$)
   tradingWindowStartMinute: number // Minute de début (0-14)
   tradingWindowStartSecond: number // Seconde de début (0-59)
+  tradingWindowEndMinute: number // Minute de fin (0-14)
   buyUpOnly: boolean // Si true, seulement buy UP, sinon UP et DOWN
   enabled: boolean
   createdAt: Date
@@ -61,6 +62,13 @@ const StrategySchema = new Schema<IStrategy>(
       required: true,
       min: 0,
       max: 59,
+    },
+    tradingWindowEndMinute: {
+      type: Number,
+      required: false,
+      min: 0,
+      max: 15,
+      default: 14,
     },
     buyUpOnly: {
       type: Boolean,
