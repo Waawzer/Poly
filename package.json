@@ -6,8 +6,10 @@
     "dev": "node scripts/dev.js",
     "dev:next": "next dev",
     "lint": "next lint",
-    "build": "tsup --config tsup.config.ts",
-    "start": "node dist/render-server.js"
+    "build": "next build",
+    "build:engine": "tsup --config tsup.config.ts",
+    "start": "next start",
+    "start:engine": "node dist/render-server.js"
   },
   "dependencies": {
     "@chainlink/data-streams-sdk": "^1.0.4",
