@@ -37,6 +37,7 @@ class ChainlinkDataStreams {
   private client: any = null
   private subscribers: Map<Crypto, Set<(data: PriceData) => void>> = new Map()
   private isConnected = false
+  private loggedFeeds: Set<Crypto> = new Set()
 
   constructor() {
     // Initialiser les sets pour chaque crypto
@@ -47,14 +48,19 @@ class ChainlinkDataStreams {
 
   connect() {
     if (this.stream && this.isConnected) {
+      console.debug("[Chainlink] connect() called but stream already active")
       return
     }
 
     if (!CHAINLINK_WS_URL || !CHAINLINK_USER_ID || !CHAINLINK_USER_SECRET) {
+      console.warn(
+        `[Chainlink] Missing credentials, skipping connect (ws=${!!CHAINLINK_WS_URL}, id=${!!CHAINLINK_USER_ID}, secret=${!!CHAINLINK_USER_SECRET})`
+      )
       return
     }
 
     try {
+      console.info(`[Chainlink] Connecting to data streams (${CHAINLINK_WS_URL})`)
       // Créer le client Chainlink avec le SDK
       this.client = createClient({
         apiKey: CHAINLINK_USER_ID, // Le SDK utilise apiKey au lieu de USER_ID
@@ -75,6 +81,7 @@ class ChainlinkDataStreams {
       // Créer le stream pour tous les feed IDs
       this.stream = this.client.createStream(FEED_IDS)
 
+      console.debug("[Chainlink] Stream created, wiring handlers")
       // Écouter les rapports
       this.stream.on("report", async (report: any) => {
         await this.handleReport(report)
@@ -87,17 +94,20 @@ class ChainlinkDataStreams {
 
       // Écouter les déconnexions
       this.stream.on("disconnected", () => {
+        console.warn("[Chainlink] Stream disconnected")
         this.isConnected = false
       })
 
       // Écouter les reconnexions
       this.stream.on("reconnecting", () => {
         // Reconnexion silencieuse
+        console.warn("[Chainlink] Stream reconnecting…")
       })
 
       // Connecter le stream
       this.stream.connect().then(() => {
         this.isConnected = true
+        console.info("[Chainlink] Stream connected successfully")
       }).catch((error: any) => {
         console.error("Error connecting Chainlink stream:", error)
       })
@@ -198,6 +208,11 @@ class ChainlinkDataStreams {
         crypto,
         price,
         timestamp,
+      }
+
+      if (!this.loggedFeeds.has(crypto)) {
+        console.info(`[Chainlink] First price for ${crypto}: $${priceData.price.toFixed(2)} @ ${new Date(priceData.timestamp).toISOString()}`)
+        this.loggedFeeds.add(crypto)
       }
 
       // Vérifier si on a déjà un prix d'ouverture pour cette bougie
