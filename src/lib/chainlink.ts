@@ -153,37 +153,30 @@ class ChainlinkDataStreams {
       let price: number | undefined
       let timestamp: number = Date.now()
 
-      // Pour V3 (Crypto), le prix peut être dans price, bid, ou ask
+      const parsePriceValue = (value: unknown, decimals: number) => {
+        try {
+          const big = typeof value === "bigint" ? value : BigInt(value as string)
+          return Number(big) / Math.pow(10, decimals)
+        } catch (err) {
+          console.warn("[Chainlink] Failed to parse price value", value, err)
+          return undefined
+        }
+      }
+
       if ("price" in decodedReport && decodedReport.price !== undefined) {
-        // Le prix est en bigint, on le convertit en nombre
-        // Diviser par 1e18 pour obtenir le prix en USD (18 décimales)
-        const priceBigInt = typeof decodedReport.price === "bigint" 
-          ? decodedReport.price 
-          : BigInt(decodedReport.price)
-        price = Number(priceBigInt) / 1e18
+        // Essays les différentes décimales courantes (1e18, 1e8, 1e6)
+        price = parsePriceValue(decodedReport.price, 18) ?? parsePriceValue(decodedReport.price, 8) ?? parsePriceValue(decodedReport.price, 6)
       } else if ("bid" in decodedReport && "ask" in decodedReport && 
                  decodedReport.bid !== undefined && decodedReport.ask !== undefined) {
-        // Calculer le mid-price depuis bid et ask
-        const bidBigInt = typeof decodedReport.bid === "bigint" 
-          ? decodedReport.bid 
-          : BigInt(decodedReport.bid)
-        const askBigInt = typeof decodedReport.ask === "bigint" 
-          ? decodedReport.ask 
-          : BigInt(decodedReport.ask)
-        const midPrice = (Number(bidBigInt) + Number(askBigInt)) / 2
-        price = midPrice / 1e18
+        const bid = parsePriceValue(decodedReport.bid, 18) ?? parsePriceValue(decodedReport.bid, 8) ?? parsePriceValue(decodedReport.bid, 6)
+        const ask = parsePriceValue(decodedReport.ask, 18) ?? parsePriceValue(decodedReport.ask, 8) ?? parsePriceValue(decodedReport.ask, 6)
+        if (bid !== undefined && ask !== undefined) {
+          price = (bid + ask) / 2
+        }
       } else if ("bid" in decodedReport && decodedReport.bid !== undefined) {
-        // Utiliser le bid si price n'est pas disponible
-        const bidBigInt = typeof decodedReport.bid === "bigint" 
-          ? decodedReport.bid 
-          : BigInt(decodedReport.bid)
-        price = Number(bidBigInt) / 1e18
+        price = parsePriceValue(decodedReport.bid, 18) ?? parsePriceValue(decodedReport.bid, 8) ?? parsePriceValue(decodedReport.bid, 6)
       } else if ("midPrice" in decodedReport && decodedReport.midPrice !== undefined) {
-        // Pour V8 (Non-OTC RWA)
-        const midPriceBigInt = typeof decodedReport.midPrice === "bigint" 
-          ? decodedReport.midPrice 
-          : BigInt(decodedReport.midPrice)
-        price = Number(midPriceBigInt) / 1e18
+        price = parsePriceValue(decodedReport.midPrice, 18) ?? parsePriceValue(decodedReport.midPrice, 8) ?? parsePriceValue(decodedReport.midPrice, 6)
       }
 
       // Extraire le timestamp
