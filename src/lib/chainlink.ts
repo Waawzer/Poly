@@ -163,20 +163,31 @@ class ChainlinkDataStreams {
         }
       }
 
+      const tryScales = (value: unknown) => {
+        for (const decimals of [18, 17, 16, 12, 9, 8, 7, 6, 5, 4, 3]) {
+          const parsed = parsePriceValue(value, decimals)
+          if (parsed !== undefined && parsed > 0) {
+            console.debug(`[Chainlink] Parsed price with ${decimals} decimals: ${parsed}`)
+            return parsed
+          }
+        }
+        console.warn("[Chainlink] Unable to parse price with known scales", value)
+        return undefined
+      }
+
       if ("price" in decodedReport && decodedReport.price !== undefined) {
-        // Essays les différentes décimales courantes (1e18, 1e8, 1e6)
-        price = parsePriceValue(decodedReport.price, 18) ?? parsePriceValue(decodedReport.price, 8) ?? parsePriceValue(decodedReport.price, 6)
+        price = tryScales(decodedReport.price)
       } else if ("bid" in decodedReport && "ask" in decodedReport && 
                  decodedReport.bid !== undefined && decodedReport.ask !== undefined) {
-        const bid = parsePriceValue(decodedReport.bid, 18) ?? parsePriceValue(decodedReport.bid, 8) ?? parsePriceValue(decodedReport.bid, 6)
-        const ask = parsePriceValue(decodedReport.ask, 18) ?? parsePriceValue(decodedReport.ask, 8) ?? parsePriceValue(decodedReport.ask, 6)
+        const bid = tryScales(decodedReport.bid)
+        const ask = tryScales(decodedReport.ask)
         if (bid !== undefined && ask !== undefined) {
           price = (bid + ask) / 2
         }
       } else if ("bid" in decodedReport && decodedReport.bid !== undefined) {
-        price = parsePriceValue(decodedReport.bid, 18) ?? parsePriceValue(decodedReport.bid, 8) ?? parsePriceValue(decodedReport.bid, 6)
+        price = tryScales(decodedReport.bid)
       } else if ("midPrice" in decodedReport && decodedReport.midPrice !== undefined) {
-        price = parsePriceValue(decodedReport.midPrice, 18) ?? parsePriceValue(decodedReport.midPrice, 8) ?? parsePriceValue(decodedReport.midPrice, 6)
+        price = tryScales(decodedReport.midPrice)
       }
 
       // Extraire le timestamp
