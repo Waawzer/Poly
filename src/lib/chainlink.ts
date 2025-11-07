@@ -118,6 +118,7 @@ class ChainlinkDataStreams {
 
   private async handleReport(report: any) {
     try {
+      console.debug("[Chainlink] Received report payload", report?.feedID ?? "unknown")
       // Le SDK décode automatiquement le rapport
       // Mais on peut aussi utiliser decodeReport si nécessaire
       let decodedReport: any
@@ -134,12 +135,14 @@ class ChainlinkDataStreams {
 
       const feedId = decodedReport.feedID
       if (!feedId) {
+        console.debug("[Chainlink] Report without feedID ignored")
         return
       }
 
       const crypto = FEED_ID_TO_CRYPTO[feedId]
 
-      if (!crypto || !(["BTC", "ETH", "XRP", "SOL"] as Crypto[]).includes(crypto)) {
+      if (!crypto || !("BTC,ETH,XRP,SOL".split(",") as Crypto[]).includes(crypto)) {
+        console.debug(`[Chainlink] Feed ${feedId} not mapped, ignoring`)
         return
       }
 
@@ -191,6 +194,7 @@ class ChainlinkDataStreams {
       }
 
       if (typeof price !== "number" || !price || isNaN(price)) {
+        console.debug(`[Chainlink] Invalid price in report for ${crypto}`)
         return
       }
 
@@ -245,6 +249,7 @@ class ChainlinkDataStreams {
 
       // Mettre en cache dans Redis (expiration de 5 minutes pour permettre des mises à jour plus fréquentes)
       await redis.set(CACHE_KEYS.price(crypto), JSON.stringify(priceData), { ex: 300 })
+      console.debug(`[Chainlink] Stored latest price for ${crypto}: $${priceData.price}`)
 
       // Sauvegarder dans MongoDB
       try {
