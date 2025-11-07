@@ -66,7 +66,7 @@ export function WalletBalance({ wallet }: WalletBalanceProps) {
             <span className="text-lg font-semibold">{formatCurrency(balance.usdc, "USD")}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">MATIC</span>
+            <span className="text-sm text-muted-foreground">POL</span>
             <span className="text-lg font-semibold">{balance.matic.toFixed(4)} MATIC</span>
           </div>
           <div className="flex justify-between items-center">
