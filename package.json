@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "node scripts/dev.js",
     "dev:next": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build": "tsup render-server.ts --format cjs --dts --out-dir dist",
+    "start": "node dist/render-server.js"
   },
   "dependencies": {
     "@chainlink/data-streams-sdk": "^1.0.4",
