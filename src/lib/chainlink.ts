@@ -145,7 +145,20 @@ class ChainlinkDataStreams {
           return undefined
         }
         try {
-          const big = typeof value === "bigint" ? value : BigInt(value)
+          let big: bigint
+          if (typeof value === "bigint") {
+            big = value
+          } else if (typeof value === "number") {
+            big = BigInt(Math.trunc(value))
+          } else if (typeof value === "string") {
+            big = BigInt(value)
+          } else if (value && typeof value === "object" && "value" in value) {
+            big = BigInt((value as any).value)
+          } else if (value && typeof value === "object" && "price" in value) {
+            big = BigInt((value as any).price)
+          } else {
+            throw new Error("Unsupported price value type")
+          }
           const abs = Number(big >= 0n ? big : -big)
           let divider = 1e8
           if (abs > 1e18) {

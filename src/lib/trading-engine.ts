@@ -7,6 +7,7 @@ import type { Crypto, PriceData } from "@/types"
 import redis, { CACHE_KEYS } from "./redis"
 import { TimedStrategyRunner } from "./strategies/timed-strategy"
 import { polymarketBuilder } from "./polymarket-builder"
+import type { ChangeStream } from "mongodb"
 
 interface StrategyExecution {
   strategyId: string
@@ -18,6 +19,7 @@ interface StrategyExecution {
 class TradingEngine {
   private activeStrategies: Map<string, StrategyExecution> = new Map()
   private priceCallbacks: Map<Crypto, (data: PriceData) => void> = new Map()
+  private strategyChangeStream: ChangeStream | null = null
 
   /**
    * Initialise le moteur de trading
@@ -41,6 +43,7 @@ class TradingEngine {
     try {
       await this.loadActiveStrategies()
       this.setupPriceSubscriptions()
+      await this.watchStrategies()
     } catch (error) {
       console.error("Error loading strategies or setting up subscriptions (non-fatal):", error)
     }
@@ -219,6 +222,92 @@ class TradingEngine {
     }
   }
 
+  private async watchStrategies() {
+    if (this.strategyChangeStream) {
+      return
+    }
+
+    const watchFn = (Strategy as unknown as { watch?: typeof Strategy.watch }).watch
+    if (typeof watchFn !== "function") {
+      console.warn("[Engine] Strategy.watch unavailable. Skipping change stream subscription.")
+      return
+    }
+
+    try {
+      this.strategyChangeStream = watchFn.call(Strategy, [], {
+        fullDocument: "updateLookup",
+      }) as ChangeStream
+
+      this.strategyChangeStream.on("change", async (change: any) => {
+        try {
+          const operation = change?.operationType
+          const fullDocument = change?.fullDocument
+          const strategyId: string | undefined =
+            fullDocument?._id?.toString() ?? change?.documentKey?._id?.toString()
+
+          if (!strategyId) {
+            return
+          }
+
+          switch (operation) {
+            case "insert":
+            case "replace":
+            case "update": {
+              const enabled = fullDocument?.enabled ?? false
+              if (enabled) {
+                await this.addStrategy(strategyId)
+              } else {
+                await this.removeStrategy(strategyId)
+              }
+              break
+            }
+            case "delete": {
+              await this.removeStrategy(strategyId)
+              break
+            }
+            case "invalidate":
+              console.warn("[Engine] Strategy change stream invalidated. Restarting…")
+              await this.restartStrategyWatch()
+              break
+            default:
+              break
+          }
+        } catch (changeError) {
+          console.error("[Engine] Error processing strategy change:", changeError)
+        }
+      })
+
+      this.strategyChangeStream.on("error", async (err: any) => {
+        console.error("[Engine] Strategy change stream error:", err)
+        await this.restartStrategyWatch()
+      })
+
+      this.strategyChangeStream.on("close", async () => {
+        console.warn("[Engine] Strategy change stream closed. Restarting…")
+        await this.restartStrategyWatch()
+      })
+
+      console.info("[Engine] Strategy change stream started.")
+    } catch (error) {
+      console.error("[Engine] Failed to start strategy change stream:", error)
+    }
+  }
+
+  private async restartStrategyWatch(delayMs: number = 5000) {
+    if (this.strategyChangeStream) {
+      try {
+        await this.strategyChangeStream.close()
+      } catch (closeError) {
+        console.warn("[Engine] Error closing strategy change stream:", closeError)
+      }
+      this.strategyChangeStream = null
+    }
+
+    setTimeout(() => {
+      void this.watchStrategies()
+    }, delayMs)
+  }
+
   /**
    * Arrête le moteur de trading
    */
@@ -230,6 +319,12 @@ class TradingEngine {
     this.priceCallbacks.clear()
     this.activeStrategies.forEach((execution) => execution.runner.stop())
     this.activeStrategies.clear()
+    if (this.strategyChangeStream) {
+      this.strategyChangeStream
+        .close()
+        .catch((error: any) => console.error("[Engine] Error closing strategy change stream:", error))
+      this.strategyChangeStream = null
+    }
   }
 
   private ensureSubscription(crypto: Crypto) {
