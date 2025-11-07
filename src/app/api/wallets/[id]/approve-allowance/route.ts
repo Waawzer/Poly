@@ -27,7 +27,7 @@ export async function POST(
     await connectDB()
 
     // Vérifier que le wallet appartient à l'utilisateur
-    const wallet = await Wallet.findById(id).lean()
+    const wallet = await Wallet.findById(id)
     if (!wallet || wallet.userId.toString() !== userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }

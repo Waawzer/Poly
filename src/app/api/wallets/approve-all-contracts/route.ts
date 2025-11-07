@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const wallet = await Wallet.findOne({
       userId,
       address: walletAddress.toLowerCase(),
-    }).lean()
+    })
 
     if (!wallet) {
       return NextResponse.json({ error: "Wallet not found" }, { status: 404 })

@@ -17,14 +17,14 @@ export async function GET(request: NextRequest) {
       query.strategyId = strategyId
       // If userId is provided, verify the strategy belongs to the user
       if (userId) {
-        const strategy = await Strategy.findById(strategyId).lean()
+        const strategy = await Strategy.findById(strategyId)
         if (!strategy || strategy.userId.toString() !== userId) {
           return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
         }
       }
     } else if (userId) {
       // If only userId is provided, get all strategies for this user and fetch their trades
-      const strategies = await Strategy.find({ userId }).lean()
+      const strategies = await Strategy.find({ userId })
       const strategyIds = strategies.map((s) => s._id)
       query.strategyId = { $in: strategyIds }
     }
@@ -37,8 +37,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       trades: trades.map((trade) => ({
-        _id: trade._id.toString(),
-        strategyId: trade.strategyId.toString(),
+        _id: String(trade._id),
+        strategyId: String(trade.strategyId),
         marketId: trade.marketId,
         side: trade.side,
         price: trade.price,

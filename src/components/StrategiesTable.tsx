@@ -91,7 +91,7 @@ export function StrategiesTable() {
     if (strategies.length === 0) return
 
     const fetchCandleOpenPrices = async () => {
-      const cryptos = [...new Set(strategies.map((s) => s.crypto))]
+      const cryptos = Array.from(new Set(strategies.map((s) => s.crypto)))
       const pricePromises = cryptos.map(async (crypto) => {
         try {
           const response = await fetch(`/api/prices/candle-open?crypto=${crypto}`)

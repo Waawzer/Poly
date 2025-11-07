@@ -16,7 +16,7 @@ export async function PATCH(
     await connectDB()
 
     // First check if strategy exists and belongs to user
-    const strategy = await Strategy.findById(id).lean()
+    const strategy = await Strategy.findById(id)
     if (!strategy) {
       return NextResponse.json({ error: "Strategy not found" }, { status: 404 })
     }
@@ -27,7 +27,11 @@ export async function PATCH(
     }
 
     // Update the strategy
-    const updatedStrategy = await Strategy.findByIdAndUpdate(id, updates, { new: true }).lean()
+    const updatedStrategy = await Strategy.findByIdAndUpdate(id, updates, { new: true })
+
+    if (!updatedStrategy) {
+      return NextResponse.json({ error: "Strategy not found after update" }, { status: 404 })
+    }
 
     // Mettre à jour le moteur de trading
     if (updates.enabled !== undefined) {
@@ -73,7 +77,7 @@ export async function DELETE(
     await connectDB()
 
     // First check if strategy exists and belongs to user
-    const strategy = await Strategy.findById(id).lean()
+    const strategy = await Strategy.findById(id)
     if (!strategy) {
       return NextResponse.json({ error: "Strategy not found" }, { status: 404 })
     }

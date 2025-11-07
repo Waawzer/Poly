@@ -15,7 +15,7 @@ export async function GET(
     await connectDB()
 
     // Verify strategy exists and belongs to user
-    const strategy = await Strategy.findById(id).lean()
+    const strategy = await Strategy.findById(id)
     if (!strategy) {
       return NextResponse.json({ error: "Strategy not found" }, { status: 404 })
     }

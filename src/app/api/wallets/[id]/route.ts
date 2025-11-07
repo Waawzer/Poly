@@ -44,7 +44,7 @@ export async function PATCH(
 
     await connectDB()
 
-    const wallet = await Wallet.findByIdAndUpdate(id, updates, { new: true }).lean()
+    const wallet = await Wallet.findByIdAndUpdate(id, updates, { new: true })
     if (!wallet) {
       return NextResponse.json({ error: "Wallet not found" }, { status: 404 })
     }
@@ -52,8 +52,8 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       wallet: {
-        _id: wallet._id.toString(),
-        userId: wallet.userId.toString(),
+        _id: String(wallet._id),
+        userId: String(wallet.userId),
         name: wallet.name,
         address: wallet.address,
         safeWalletAddress: wallet.safeWalletAddress,

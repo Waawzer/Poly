@@ -109,7 +109,7 @@ export function StatsBar() {
       <Card>
         <CardContent className="p-4">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Nombre d'Ordres</p>
+            <p className="text-sm text-muted-foreground">Nombre d&apos;Ordres</p>
             <p className="text-2xl font-bold">{stats.totalOrders}</p>
           </div>
         </CardContent>

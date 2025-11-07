@@ -187,7 +187,7 @@ export function StrategyForm({ onSuccess }: StrategyFormProps) {
             Buy UP only
           </label>
           <p className="text-xs text-muted-foreground">
-            If enabled, the strategy will only attempt "buy UP" orders. Otherwise, it will try both UP and DOWN.
+            If enabled, the strategy will only attempt &quot;buy UP&quot; orders. Otherwise, it will try both UP and DOWN.
           </p>
         </div>
         <div className="ml-4 flex-shrink-0">

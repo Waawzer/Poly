@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useAccount, useConnect, useDisconnect } from "wagmi"
+import { useCallback, useEffect, useState } from "react"
+import Image from "next/image"
+import { useAccount, useDisconnect } from "wagmi"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { useStore } from "@/store/useStore"
 import { initSafeWallet } from "@/lib/safe-wallet"
@@ -15,47 +16,7 @@ export function WalletConnectButton() {
 
   const [checkingSafe, setCheckingSafe] = useState(false)
 
-  // Check if we're in Safe Wallet environment
-  useEffect(() => {
-    const checkSafeWallet = async () => {
-      // Only check if not already connected via wagmi
-      if (!isConnected && !user && !checkingSafe) {
-        try {
-          setCheckingSafe(true)
-          const safe = await initSafeWallet()
-          if (safe?.safeAddress) {
-            // We're in Safe Wallet, authenticate
-            await handleSafeWalletAuth(safe.safeAddress)
-          }
-        } catch (error) {
-          // Not in Safe Wallet, that's fine
-        } finally {
-          setCheckingSafe(false)
-        }
-      }
-    }
-
-    checkSafeWallet()
-  }, [isConnected, user, checkingSafe])
-
-  // Handle wallet connection via wagmi
-  useEffect(() => {
-    if (isConnected && address) {
-      // Check if user exists and matches the connected address
-      const userAddress = user?.walletAddress || user?.safeWalletAddress
-      if (!user || userAddress?.toLowerCase() !== address.toLowerCase()) {
-        handleWalletAuth(address)
-      }
-    } else if (!isConnected && user) {
-      // Wallet disconnected, clear user only if it was a regular wallet (not Safe)
-      const userAddress = user?.walletAddress
-      if (userAddress) {
-        handleDisconnect()
-      }
-    }
-  }, [isConnected, address])
-
-  const handleWalletAuth = async (walletAddress: string) => {
+  const handleWalletAuth = useCallback(async (walletAddress: string) => {
     try {
       // Authenticate with backend
       const response = await fetch("/api/auth/wallet", {
@@ -75,9 +36,9 @@ export function WalletConnectButton() {
     } catch (error) {
       console.error("Error authenticating wallet:", error)
     }
-  }
+  }, [setUser, setWallet])
 
-  const handleSafeWalletAuth = async (safeAddress: string) => {
+  const handleSafeWalletAuth = useCallback(async (safeAddress: string) => {
     try {
       // Authenticate with backend
       const response = await fetch("/api/auth/safe", {
@@ -97,20 +58,64 @@ export function WalletConnectButton() {
     } catch (error) {
       console.error("Error authenticating Safe Wallet:", error)
     }
-  }
+  }, [setUser, setWallet])
 
-  const handleDisconnect = () => {
+  const handleDisconnect = useCallback(() => {
     setUser(null)
     setWallet(null)
-  }
+  }, [setUser, setWallet])
 
   // Custom disconnect handler
-  const handleCustomDisconnect = () => {
+  const handleCustomDisconnect = useCallback(() => {
     if (isConnected) {
       disconnect()
     }
     handleDisconnect()
-  }
+  }, [disconnect, handleDisconnect, isConnected])
+
+  // Check if we're in Safe Wallet environment
+  useEffect(() => {
+    if (checkingSafe) {
+      return
+    }
+
+    const checkSafeWallet = async () => {
+      // Only check if not already connected via wagmi
+      if (!isConnected && !user) {
+        try {
+          setCheckingSafe(true)
+          const safe = await initSafeWallet()
+          if (safe?.safeAddress) {
+            // We're in Safe Wallet, authenticate
+            await handleSafeWalletAuth(safe.safeAddress)
+          }
+        } catch (error) {
+          // Not in Safe Wallet, that's fine
+        } finally {
+          setCheckingSafe(false)
+        }
+      }
+    }
+
+    checkSafeWallet()
+  }, [checkingSafe, handleSafeWalletAuth, isConnected, user])
+
+  // Handle wallet connection via wagmi
+  useEffect(() => {
+    if (isConnected && address) {
+      // Check if user exists and matches the connected address
+      const userAddress = user?.walletAddress || user?.safeWalletAddress
+      if (!user || userAddress?.toLowerCase() !== address.toLowerCase()) {
+        handleWalletAuth(address)
+      }
+    } else if (!isConnected && user) {
+      // Wallet disconnected, clear user only if it was a regular wallet (not Safe)
+      const userAddress = user?.walletAddress
+      if (userAddress) {
+        handleDisconnect()
+      }
+    }
+  }, [address, handleDisconnect, handleWalletAuth, isConnected, user])
 
   return (
     <div className="flex items-center gap-2">
@@ -189,10 +194,13 @@ export function WalletConnectButton() {
                           }}
                         >
                           {chain.iconUrl && (
-                            <img
+                            <Image
                               alt={chain.name ?? "Chain icon"}
                               src={chain.iconUrl}
+                              width={12}
+                              height={12}
                               style={{ width: 12, height: 12 }}
+                              unoptimized
                             />
                           )}
                         </div>

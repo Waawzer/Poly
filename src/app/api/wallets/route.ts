@@ -13,13 +13,13 @@ export async function GET(request: NextRequest) {
 
     await connectDB()
 
-    const wallets = await Wallet.find({ userId }).lean()
+    const wallets = await Wallet.find({ userId })
 
     return NextResponse.json({
       success: true,
       wallets: wallets.map((wallet) => ({
-        _id: wallet._id.toString(),
-        userId: wallet.userId.toString(),
+        _id: String(wallet._id),
+        userId: String(wallet.userId),
         name: wallet.name,
         address: wallet.address,
         safeWalletAddress: wallet.safeWalletAddress,
@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       wallet: {
-        _id: wallet._id.toString(),
-        userId: wallet.userId.toString(),
+        _id: String(wallet._id),
+        userId: String(wallet.userId),
         name: wallet.name,
         address: wallet.address,
         safeWalletAddress: wallet.safeWalletAddress,
