@@ -161,6 +161,7 @@ export class TimedStrategyRunner {
       if (this.pendingPriceData) {
         const next = this.pendingPriceData
         this.pendingPriceData = null
+        console.debug(`TimedStrategyRunner(${this.strategy.crypto} - ${this.strategy.id}) draining queued price update`)
         await this.handlePriceUpdate(next)
       }
     }
@@ -181,26 +182,31 @@ export class TimedStrategyRunner {
 
     const openPrice = await this.ensureOpenPrice(priceData)
     if (openPrice === null) {
+      console.debug(`TimedStrategyRunner(${this.strategy.crypto} - ${this.strategy.id}) waiting for open price`)
       // Wait for a reliable open price before trading
       return
     }
 
     if (!this.initialized) {
+      console.debug(`TimedStrategyRunner(${this.strategy.crypto} - ${this.strategy.id}) not initialized yet, skipping tick`)
       // Waiting for the next full candle to initialize the strategy
       return
     }
 
     const windowState = this.getWindowState(priceData.timestamp)
     if (!windowState.inWindow) {
+      console.debug(`TimedStrategyRunner(${this.strategy.crypto} - ${this.strategy.id}) outside trading window`)
       return
     }
 
     if (this.orderPlacedThisCandle) {
+      console.debug(`TimedStrategyRunner(${this.strategy.crypto} - ${this.strategy.id}) already placed order this candle`)
       return
     }
 
     const market = await this.ensureMarket(this.currentCandleTimestamp)
     if (!market) {
+      console.debug(`TimedStrategyRunner(${this.strategy.crypto} - ${this.strategy.id}) market unavailable for candle ${this.currentCandleTimestamp}`)
       return
     }
 
@@ -244,6 +250,7 @@ export class TimedStrategyRunner {
       await this.setOpenPrice(priceData)
       if (this.candleOpenPrice !== null) {
         this.initialized = true
+        console.info(`TimedStrategyRunner(${this.strategy.crypto} - ${this.strategy.id}) initialized on new candle`)
       }
     } else if (!this.initialized) {
       console.warn(
@@ -281,6 +288,7 @@ export class TimedStrategyRunner {
       const parsed = parseFloat(cached)
       if (!Number.isNaN(parsed)) {
         this.candleOpenPrice = parsed
+        console.debug(`TimedStrategyRunner(${this.strategy.crypto} - ${this.strategy.id}) restored open price from cache`)
         return
       }
     }
@@ -290,6 +298,7 @@ export class TimedStrategyRunner {
     if (minuteInCandle === 0) {
       this.candleOpenPrice = priceData.price
       await redis.set(cacheKey, priceData.price.toString(), { ex: 900 })
+      console.debug(`TimedStrategyRunner(${this.strategy.crypto} - ${this.strategy.id}) captured open price at minute 0`)
     }
   }
 

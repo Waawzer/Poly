@@ -52,9 +52,12 @@ class TradingEngine {
   private async loadActiveStrategies() {
     const strategies = await Strategy.find({ enabled: true }).lean<Array<IStrategy & { _id: unknown }>>()
 
+    console.info(`[Engine] Loading strategies: found ${strategies.length}`)
+
     if (!strategies.length) {
       this.activeStrategies.forEach((execution) => execution.runner.stop())
       this.activeStrategies.clear()
+      console.info("[Engine] No active strategies detected – engine idle")
       return
     }
 
@@ -86,6 +89,7 @@ class TradingEngine {
         existing.crypto = strategy.crypto
         existing.walletId = walletId
         seen.add(strategyId)
+        console.info(`[Engine] Refreshed existing strategy ${strategyId} (${strategy.crypto})`)
         continue
       }
 
@@ -102,6 +106,7 @@ class TradingEngine {
       })
 
       seen.add(strategyId)
+      console.info(`[Engine] Registered strategy ${strategyId} (${strategy.crypto})`)
     }
 
     const toRemove: string[] = []
@@ -113,6 +118,9 @@ class TradingEngine {
     }
 
     toRemove.forEach((strategyId) => this.activeStrategies.delete(strategyId))
+    if (toRemove.length) {
+      console.info(`[Engine] Removed ${toRemove.length} stale strategies`)
+    }
   }
 
   /**
@@ -132,6 +140,7 @@ class TradingEngine {
    * Gère les mises à jour de prix
    */
   private async handlePriceUpdate(crypto: Crypto, priceData: PriceData) {
+    console.debug(`[Engine] Price update ${crypto}: $${priceData.price} @ ${new Date(priceData.timestamp).toISOString()}`)
     const currentCandle = getCandleTimestamp(priceData.timestamp)
     const minute = getCandleMinute(priceData.timestamp)
 
@@ -150,6 +159,7 @@ class TradingEngine {
     )
 
     for (const execution of relevantStrategies) {
+      console.debug(`[Engine] Forwarding price update to strategy ${execution.strategyId}`)
       await execution.runner.handlePriceUpdate(priceData)
     }
   }
@@ -176,6 +186,7 @@ class TradingEngine {
       existing.crypto = strategy.crypto
       existing.walletId = String(strategy.walletId)
       this.ensureSubscription(strategy.crypto)
+      console.info(`[Engine] Strategy ${strategyId} already active – refreshed configuration`)
       return
     }
 
@@ -192,6 +203,7 @@ class TradingEngine {
     })
 
     this.ensureSubscription(strategy.crypto)
+    console.info(`[Engine] Strategy ${strategyId} (${strategy.crypto}) added at runtime`)
   }
 
   /**
@@ -232,6 +244,7 @@ class TradingEngine {
     this.priceCallbacks.set(crypto, callback)
     const chainlinkStreams = getChainlinkStreams()
     chainlinkStreams.subscribe(crypto, callback)
+    console.info(`[Engine] Subscribed to Chainlink feed for ${crypto}`)
   }
 
   private cleanupSubscription(crypto: Crypto) {
@@ -248,6 +261,7 @@ class TradingEngine {
       const chainlinkStreams = getChainlinkStreams()
       chainlinkStreams.unsubscribe(crypto, callback)
       this.priceCallbacks.delete(crypto)
+      console.info(`[Engine] Unsubscribed from Chainlink feed for ${crypto}`)
     }
   }
 }
