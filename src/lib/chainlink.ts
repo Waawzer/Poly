@@ -119,19 +119,8 @@ class ChainlinkDataStreams {
   private async handleReport(report: any) {
     try {
       console.debug("[Chainlink] Received report payload", report?.feedID ?? "unknown")
-      // Le SDK décode automatiquement le rapport
-      // Mais on peut aussi utiliser decodeReport si nécessaire
-      let decodedReport: any
-      
-      if (report.price !== undefined || report.feedID) {
-        // Le rapport est déjà décodé par le SDK
-        decodedReport = report
-      } else if (report.fullReport) {
-        // Décoder le rapport si nécessaire
-        decodedReport = decodeReport(report.fullReport, report.feedID)
-      } else {
-        return
-      }
+      const decodedReport: any =
+        report?.fullReport && report?.feedID ? decodeReport(report.fullReport, report.feedID) : report
 
       const feedId = decodedReport.feedID
       if (!feedId) {
@@ -147,58 +136,36 @@ class ChainlinkDataStreams {
       }
 
       // Extraire le prix depuis le rapport décodé
-      // Le format dépend de la version du schéma (V2, V3, etc.)
-      // Pour V3 (Crypto), le prix est généralement dans "price"
-      // Si "price" n'existe pas, on peut calculer le mid-price depuis bid/ask
       let price: number | undefined
       let timestamp: number = Date.now()
 
-      const parsePriceValue = (value: unknown, decimalsFallback: number) => {
+      const normalizeInt192 = (value: unknown) => {
+        if (value === undefined || value === null) {
+          return undefined
+        }
         try {
-          if (value && typeof value === "object") {
-            const raw = (value as any).price ?? (value as any).value ?? (value as any).raw ?? (value as any).amount
-            const exp = (value as any).exponent ?? (value as any).expo ?? (value as any).decimals
-            if (raw !== undefined) {
-              const bigObj = typeof raw === "bigint" ? raw : BigInt(String(raw))
-              if (typeof exp === "number") {
-                return Number(bigObj) * Math.pow(10, exp)
-              }
-              return Number(bigObj) / Math.pow(10, decimalsFallback)
-            }
-          }
-          const big = typeof value === "bigint" ? value : BigInt(String(value))
-          return Number(big) / Math.pow(10, decimalsFallback)
-        } catch (err) {
-          console.warn("[Chainlink] Failed to parse price value", value, err)
+          const big = typeof value === "bigint" ? value : BigInt(value)
+          return Number(big) / 1e8
+        } catch (error) {
+          console.warn("[Chainlink] Failed to normalize int192 value", value, error)
           return undefined
         }
       }
 
-      const tryScales = (value: unknown) => {
-        for (const decimals of [18, 17, 16, 12, 9, 8, 7, 6, 5, 4, 3]) {
-          const parsed = parsePriceValue(value, decimals)
-          if (parsed !== undefined && parsed > 0) {
-            console.debug(`[Chainlink] Parsed price with ${decimals} decimals: ${parsed}`)
-            return parsed
-          }
-        }
-        console.warn("[Chainlink] Unable to parse price with known scales", JSON.stringify(value))
-        return undefined
-      }
-
-      if ("price" in decodedReport && decodedReport.price !== undefined) {
-        price = tryScales(decodedReport.price)
-      } else if ("bid" in decodedReport && "ask" in decodedReport && 
-                 decodedReport.bid !== undefined && decodedReport.ask !== undefined) {
-        const bid = tryScales(decodedReport.bid)
-        const ask = tryScales(decodedReport.ask)
+      if (decodedReport.price !== undefined) {
+        price = normalizeInt192(decodedReport.price)
+      } else if (decodedReport.midPrice !== undefined) {
+        price = normalizeInt192(decodedReport.midPrice)
+      } else if (decodedReport.bid !== undefined && decodedReport.ask !== undefined) {
+        const bid = normalizeInt192(decodedReport.bid)
+        const ask = normalizeInt192(decodedReport.ask)
         if (bid !== undefined && ask !== undefined) {
           price = (bid + ask) / 2
         }
-      } else if ("bid" in decodedReport && decodedReport.bid !== undefined) {
-        price = tryScales(decodedReport.bid)
-      } else if ("midPrice" in decodedReport && decodedReport.midPrice !== undefined) {
-        price = tryScales(decodedReport.midPrice)
+      } else if (decodedReport.bid !== undefined) {
+        price = normalizeInt192(decodedReport.bid)
+      } else if (decodedReport.ask !== undefined) {
+        price = normalizeInt192(decodedReport.ask)
       }
 
       // Extraire le timestamp
@@ -467,15 +434,14 @@ class ChainlinkDataStreams {
           let openPrice: number | undefined
 
           if ("price" in decoded && decoded.price !== undefined) {
-            const priceBigInt = typeof decoded.price === "bigint" 
-              ? decoded.price 
-              : BigInt(decoded.price)
-            openPrice = Number(priceBigInt) / 1e18
+            openPrice = Number((typeof decoded.price === "bigint" ? decoded.price : BigInt(decoded.price))) / 1e8
           } else if ("bid" in decoded && decoded.bid !== undefined) {
-            const bidBigInt = typeof decoded.bid === "bigint" 
-              ? decoded.bid 
-              : BigInt(decoded.bid)
-            openPrice = Number(bidBigInt) / 1e18
+            openPrice = Number((typeof decoded.bid === "bigint" ? decoded.bid : BigInt(decoded.bid))) / 1e8
+          }
+          if ("price" in decoded && decoded.price !== undefined) {
+            openPrice = Number((typeof decoded.price === "bigint" ? decoded.price : BigInt(decoded.price))) / 1e8
+          } else if ("bid" in decoded && decoded.bid !== undefined) {
+            openPrice = Number((typeof decoded.bid === "bigint" ? decoded.bid : BigInt(decoded.bid))) / 1e8
           }
 
           if (openPrice && !isNaN(openPrice)) {
@@ -536,15 +502,9 @@ class ChainlinkDataStreams {
             let price: number | undefined
 
             if ("price" in decoded && decoded.price !== undefined) {
-              const priceBigInt = typeof decoded.price === "bigint" 
-                ? decoded.price 
-                : BigInt(decoded.price)
-              price = Number(priceBigInt) / 1e18
+              price = Number((typeof decoded.price === "bigint" ? decoded.price : BigInt(decoded.price))) / 1e8
             } else if ("bid" in decoded && decoded.bid !== undefined) {
-              const bidBigInt = typeof decoded.bid === "bigint" 
-                ? decoded.bid 
-                : BigInt(decoded.bid)
-              price = Number(bidBigInt) / 1e18
+              price = Number((typeof decoded.bid === "bigint" ? decoded.bid : BigInt(decoded.bid))) / 1e8
             }
 
             if (price && !isNaN(price)) {
