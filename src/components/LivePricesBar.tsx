@@ -78,9 +78,9 @@ export function LivePricesBar() {
   }
 
   return (
-    <div className="border-b bg-muted/30 sticky top-0 z-10">
+    <div className="sticky top-0 z-20 border-b border-border/40 bg-[linear-gradient(90deg,_rgba(12,10,32,0.85),_rgba(17,12,40,0.9))] backdrop-blur-xl">
       <div className="container mx-auto px-4 py-2">
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[11px] sm:text-xs text-muted-foreground">
           {cryptos.map((crypto) => {
             const price = prices[crypto]
             const openPrice = candleOpenPrices[crypto]
@@ -93,31 +93,31 @@ export function LivePricesBar() {
               : null
 
             return (
-              <div key={crypto} className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-xs">{crypto}:</span>
+              <div key={crypto} className="flex items-center gap-2 rounded-full bg-secondary/50 px-3 py-1 backdrop-blur">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold uppercase tracking-wide text-accent-foreground">{crypto}</span>
                   {price ? (
                     <>
-                      <span className="font-mono font-medium text-xs">
+                      <span className="font-mono font-medium text-foreground/90">
                         ${formatPrice(price.price, decimals)}
                       </span>
                       {priceDiff !== null && (
                         <span
-                          className={`text-xs font-medium ${
-                            priceDiff >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                          className={`font-semibold ${
+                            priceDiff >= 0 ? "text-green-400" : "text-red-400"
                           }`}
                         >
-                          ({priceDiff >= 0 ? "+" : ""}${formatPrice(Math.abs(priceDiff), decimals)})
+                          {priceDiff >= 0 ? "+" : "-"}${formatPrice(Math.abs(priceDiff), decimals)}
                         </span>
                       )}
                       {priceChange !== null && (
                         <span
-                          className={`text-xs font-medium ${
-                            priceChange >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                          className={`font-medium ${
+                            priceChange >= 0 ? "text-green-400" : "text-red-400"
                           }`}
                         >
-                          ({priceChange >= 0 ? "+" : ""}
-                          {priceChange.toFixed(2)}%)
+                          {priceChange >= 0 ? "+" : ""}
+                          {priceChange.toFixed(2)}%
                         </span>
                       )}
                     </>
@@ -125,12 +125,12 @@ export function LivePricesBar() {
                     <span className="text-muted-foreground text-xs">...</span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <span className="text-xs">O:</span>
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <span className="font-semibold text-muted-foreground/80">O:</span>
                   {openPrice > 0 ? (
-                    <span className="font-mono text-xs">${formatPrice(openPrice, decimals)}</span>
+                    <span className="font-mono text-foreground/80">${formatPrice(openPrice, decimals)}</span>
                   ) : (
-                    <span className="text-xs">-</span>
+                    <span>-</span>
                   )}
                 </div>
               </div>

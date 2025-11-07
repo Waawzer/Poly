@@ -92,69 +92,66 @@ export function StrategyForm({ onSuccess }: StrategyFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium mb-1">Crypto</label>
-        <Select value={crypto} onChange={(e) => setCrypto(e.target.value as Crypto)}>
-          <option value="BTC">BTC</option>
-          <option value="ETH">ETH</option>
-          <option value="XRP">XRP</option>
-          <option value="SOL">SOL</option>
-        </Select>
-      </div>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-1.5 text-[11px] leading-snug">
+      <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Crypto</label>
+          <Select
+            value={crypto}
+            onChange={(e) => setCrypto(e.target.value as Crypto)}
+            className="rounded-md border border-border/40 bg-secondary/40 px-2 text-[11px] focus-visible:ring-accent"
+            style={{ height: 32 }}
+          >
+            <option value="BTC">BTC</option>
+            <option value="ETH">ETH</option>
+            <option value="XRP">XRP</option>
+            <option value="SOL">SOL</option>
+          </Select>
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">Quantity (shares)</label>
-        <Input
-          type="number"
-          step="0.01"
-          min="0"
-          value={orderAmount}
-          onChange={(e) => setOrderAmount(e.target.value)}
-          placeholder="10"
-          required
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          Number of shares to trade
-        </p>
-      </div>
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Quantity</label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={orderAmount}
+            onChange={(e) => setOrderAmount(e.target.value)}
+            required
+            className="rounded-md border border-border/40 bg-secondary/40 px-2 text-[11px] focus-visible:ring-accent"
+            style={{ height: 32 }}
+          />
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">Order Price (centimes)</label>
-        <Input
-          type="number"
-          step="1"
-          min="0"
-          max="100"
-          value={orderPrice}
-          onChange={(e) => setOrderPrice(e.target.value)}
-          placeholder="50"
-          required
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          Order price in cents (e.g., 50 for $0.50, 100 for $1.00)
-        </p>
-      </div>
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Order Price (¢)</label>
+          <Input
+            type="number"
+            step="1"
+            min="0"
+            max="100"
+            value={orderPrice}
+            onChange={(e) => setOrderPrice(e.target.value)}
+            required
+            className="h-8 rounded-md border border-border/40 bg-secondary/40 px-2 text-[11px] focus-visible:ring-accent"
+          />
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">Threshold (USD)</label>
-        <Input
-          type="number"
-          step="0.01"
-          min="0"
-          value={priceThreshold}
-          onChange={(e) => setPriceThreshold(e.target.value)}
-          placeholder="100.00"
-          required
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          Absolute difference between current price and opening price (in USD)
-        </p>
-      </div>
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Threshold (USD)</label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={priceThreshold}
+            onChange={(e) => setPriceThreshold(e.target.value)}
+            required
+            className="h-8 rounded-md border border-border/40 bg-secondary/40 px-2 text-[11px] focus-visible:ring-accent"
+          />
+        </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Start Minute</label>
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Start Minute</label>
           <Input
             type="number"
             min="0"
@@ -162,10 +159,12 @@ export function StrategyForm({ onSuccess }: StrategyFormProps) {
             value={tradingWindowStartMinute}
             onChange={(e) => setTradingWindowStartMinute(e.target.value)}
             required
+            className="h-8 rounded-md border border-border/40 bg-secondary/40 px-2 text-[11px] focus-visible:ring-accent"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Start Second</label>
+
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Start Second</label>
           <Input
             type="number"
             min="0"
@@ -173,39 +172,42 @@ export function StrategyForm({ onSuccess }: StrategyFormProps) {
             value={tradingWindowStartSecond}
             onChange={(e) => setTradingWindowStartSecond(e.target.value)}
             required
+            className="h-8 rounded-md border border-border/40 bg-secondary/40 px-2 text-[11px] focus-visible:ring-accent"
           />
         </div>
       </div>
 
-      <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
-        <div className="space-y-0.5 flex-1">
-          <label 
-            htmlFor="buy-up-only" 
-            className="text-sm font-medium cursor-pointer"
+      <div className="flex items-center justify-between rounded-lg border border-border/40 bg-secondary/40 px-3 py-2 shadow-sm">
+        <div className="flex-1 space-y-0.5 pr-3">
+          <label
+            htmlFor="buy-up-only"
+            className="text-xs font-medium cursor-pointer"
             onClick={() => setBuyUpOnly(!buyUpOnly)}
           >
             Buy UP only
           </label>
-          <p className="text-xs text-muted-foreground">
-            If enabled, the strategy will only attempt &quot;buy UP&quot; orders. Otherwise, it will try both UP and DOWN.
+          <p className="text-[10px] text-muted-foreground">
+            When disabled, the bot can also take DOWN positions.
           </p>
         </div>
-        <div className="ml-4 flex-shrink-0">
-          <Switch
-            id="buy-up-only"
-            checked={buyUpOnly}
-            onCheckedChange={setBuyUpOnly}
-            className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
-          />
-        </div>
+        <Switch
+          id="buy-up-only"
+          checked={buyUpOnly}
+          onCheckedChange={setBuyUpOnly}
+          className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
+        />
       </div>
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={loading} className="flex-1">
+      <div className="mt-1 flex items-center gap-2">
+        <Button
+          type="submit"
+          disabled={loading}
+          className="h-8 flex-1 rounded-lg bg-[linear-gradient(135deg,_rgba(139,91,255,0.85),_rgba(51,197,255,0.75))] px-3 text-xs font-semibold shadow-[0_10px_25px_rgba(51,197,255,0.25)] hover:opacity-95"
+        >
           {loading ? "Creating..." : "Add Strategy"}
         </Button>
         {onSuccess && (
-          <Button type="button" variant="outline" onClick={onSuccess}>
+          <Button type="button" variant="outline" onClick={onSuccess} className="h-8 rounded-lg border-border/50 px-3 text-xs">
             Cancel
           </Button>
         )}

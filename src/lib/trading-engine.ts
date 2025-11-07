@@ -1,19 +1,18 @@
 import connectDB from "./mongodb"
 import Strategy, { type IStrategy } from "@/models/Strategy"
-import Trade from "@/models/Trade"
 import Wallet, { type IWallet } from "@/models/Wallet"
 import { getChainlinkStreams } from "./chainlink"
-import { polymarketCLOB } from "./polymarket"
-import { polymarketBuilder } from "./polymarket-builder"
-import { getCandleTimestamp, getCandleMinute, isInTradingWindow } from "./utils"
-import type { Crypto, PriceData, TradeSide } from "@/types"
+import { getCandleMinute, getCandleTimestamp } from "./utils"
+import type { Crypto, PriceData } from "@/types"
 import redis, { CACHE_KEYS } from "./redis"
+import { TimedStrategyRunner } from "./strategies/timed-strategy"
+import { polymarketBuilder } from "./polymarket-builder"
 
 interface StrategyExecution {
   strategyId: string
   walletId: string
   crypto: Crypto
-  lastExecutedCandle: number | null
+  runner: TimedStrategyRunner
 }
 
 class TradingEngine {
@@ -44,7 +43,6 @@ class TradingEngine {
       this.setupPriceSubscriptions()
     } catch (error) {
       console.error("Error loading strategies or setting up subscriptions (non-fatal):", error)
-      // Continuer même en cas d'erreur
     }
   }
 
@@ -52,23 +50,69 @@ class TradingEngine {
    * Charge les stratégies actives depuis la base de données
    */
   private async loadActiveStrategies() {
-    const strategies = await Strategy.find({ enabled: true }).lean<Array<{
-      _id: unknown
-      walletId: unknown
-      crypto: Crypto
-    }>>()
+    const strategies = await Strategy.find({ enabled: true }).lean<Array<IStrategy & { _id: unknown }>>()
 
-    strategies.forEach((strategy) => {
+    if (!strategies.length) {
+      this.activeStrategies.forEach((execution) => execution.runner.stop())
+      this.activeStrategies.clear()
+      return
+    }
+
+    const walletIds = Array.from(
+      new Set(strategies.map((strategy) => String(strategy.walletId)))
+    )
+
+    const wallets = await Wallet.find({ _id: { $in: walletIds } }).lean<Array<IWallet & { _id: unknown }>>()
+    const walletMap = new Map<string, IWallet & { _id: unknown }>(
+      wallets.map((wallet) => [String(wallet._id), wallet])
+    )
+
+    const seen = new Set<string>()
+
+    for (const strategy of strategies) {
       const strategyId = String(strategy._id)
       const walletId = String(strategy.walletId)
+      const wallet = walletMap.get(walletId)
+
+      if (!wallet) {
+        console.warn(`TradingEngine: wallet ${walletId} not found for strategy ${strategyId}`)
+        continue
+      }
+
+      const existing = this.activeStrategies.get(strategyId)
+      if (existing) {
+        existing.runner.updateStrategy(strategy as IStrategy & { _id: unknown })
+        existing.runner.updateWallet(wallet as IWallet & { _id: unknown })
+        existing.crypto = strategy.crypto
+        existing.walletId = walletId
+        seen.add(strategyId)
+        continue
+      }
+
+      const runner = new TimedStrategyRunner({
+        strategy: strategy as IStrategy & { _id: unknown },
+        wallet: wallet as IWallet & { _id: unknown },
+      })
 
       this.activeStrategies.set(strategyId, {
         strategyId,
         walletId,
         crypto: strategy.crypto,
-        lastExecutedCandle: null,
+        runner,
       })
-    })
+
+      seen.add(strategyId)
+    }
+
+    const toRemove: string[] = []
+    for (const [strategyId, execution] of Array.from(this.activeStrategies.entries())) {
+      if (!seen.has(strategyId)) {
+        execution.runner.stop()
+        toRemove.push(strategyId)
+      }
+    }
+
+    toRemove.forEach((strategyId) => this.activeStrategies.delete(strategyId))
   }
 
   /**
@@ -81,12 +125,7 @@ class TradingEngine {
       cryptos.add(execution.crypto)
     })
 
-    cryptos.forEach((crypto) => {
-      const callback = (data: PriceData) => this.handlePriceUpdate(crypto, data)
-      this.priceCallbacks.set(crypto, callback)
-      const chainlinkStreams = getChainlinkStreams()
-      chainlinkStreams.subscribe(crypto, callback)
-    })
+    cryptos.forEach((crypto) => this.ensureSubscription(crypto))
   }
 
   /**
@@ -111,200 +150,7 @@ class TradingEngine {
     )
 
     for (const execution of relevantStrategies) {
-      await this.evaluateStrategy(execution, priceData, currentCandle, minute)
-    }
-  }
-
-  /**
-   * Évalue une stratégie et exécute un trade si les conditions sont remplies
-   */
-  private async evaluateStrategy(
-    execution: StrategyExecution,
-    priceData: PriceData,
-    candleTimestamp: number,
-    minute: number
-  ) {
-    try {
-      // Éviter les exécutions multiples pour la même bougie
-      if (execution.lastExecutedCandle === candleTimestamp) {
-        return
-      }
-
-      const strategy = await Strategy.findById(execution.strategyId).lean<(IStrategy & { _id: unknown }) | null>()
-      if (!strategy || !strategy.enabled) {
-        return
-      }
-
-      // Vérifier si on est dans la fenêtre de trading
-      // Convertir la minute et seconde de début en timestamp relatif à la bougie
-      const candleStartTime = candleTimestamp
-      const strategyStartTime = candleStartTime + 
-        (strategy.tradingWindowStartMinute * 60 * 1000) + 
-        (strategy.tradingWindowStartSecond * 1000)
-      
-      // La stratégie est active à partir du timestamp de début jusqu'à la fin de la bougie
-      if (priceData.timestamp < strategyStartTime) {
-        return
-      }
-
-      // Récupérer le prix d'ouverture de la bougie
-      const openPriceStr = await redis.get<string>(
-        CACHE_KEYS.candleOpenPrice(strategy.crypto, candleTimestamp)
-      )
-
-      if (!openPriceStr) {
-        // Si pas de prix d'ouverture, utiliser le prix actuel (première minute)
-        if (minute === 0) {
-          await redis.set(
-            CACHE_KEYS.candleOpenPrice(strategy.crypto, candleTimestamp),
-            priceData.price.toString(),
-            { ex: 900 }
-          )
-          return // Attendre la prochaine mise à jour
-        }
-        return
-      }
-
-      const openPrice = parseFloat(openPriceStr)
-      const priceDifference = priceData.price - openPrice
-      const absPriceDifference = Math.abs(priceDifference)
-
-      // Vérifier si la différence absolue atteint le seuil
-      if (absPriceDifference < strategy.priceThreshold) {
-        return
-      }
-
-      // Déterminer le côté du trade
-      let side: TradeSide | null = null
-      if (priceDifference >= strategy.priceThreshold) {
-        side = "UP"
-      } else if (!strategy.buyUpOnly && priceDifference <= -strategy.priceThreshold) {
-        // Si buyUpOnly est false, on peut aussi trader DOWN
-        side = "DOWN"
-      }
-
-      if (side) {
-        await this.executeTrade(strategy, execution, side, candleTimestamp, priceData.price)
-        execution.lastExecutedCandle = candleTimestamp
-      }
-    } catch (error) {
-      console.error(`Error evaluating strategy ${execution.strategyId}:`, error)
-    }
-  }
-
-  /**
-   * Exécute un trade
-   */
-  private async executeTrade(
-    strategy: any,
-    execution: StrategyExecution,
-    side: TradeSide,
-    candleTimestamp: number,
-    currentPrice: number
-  ) {
-    try {
-      // Récupérer le wallet associé à la stratégie
-      const wallet = await Wallet.findById(execution.walletId).lean<(IWallet & { _id: unknown }) | null>()
-      if (!wallet) {
-        console.error(`Wallet not found for strategy ${strategy._id}`)
-        return
-      }
-
-      // Récupérer le marché
-      const market = await polymarketCLOB.getMarket(strategy.crypto, candleTimestamp)
-      if (!market) {
-        console.error(`Market not found for ${strategy.crypto} at ${candleTimestamp}`)
-        return
-      }
-
-      // Récupérer le ticker pour obtenir le prix du marché
-      const ticker = await polymarketCLOB.getTicker(market.id)
-      if (!ticker) {
-        console.error(`Ticker not found for market ${market.id}`)
-        return
-      }
-
-      // Utiliser le prix d'ordre défini dans la stratégie (en centimes, converti en dollars)
-      // Si orderPrice n'est pas défini, utiliser le prix du marché comme fallback
-      let orderPrice = 0.5
-      if (strategy.orderPrice !== undefined && strategy.orderPrice !== null) {
-        // Convertir de centimes en dollars (ex: 50 centimes = 0.50$)
-        orderPrice = strategy.orderPrice / 100
-      } else {
-        // Fallback: utiliser le prix du marché
-        if (side === "UP" && ticker.ask !== undefined) {
-          orderPrice = ticker.ask
-        } else if (side === "DOWN" && ticker.bid !== undefined) {
-          orderPrice = ticker.bid
-        }
-      }
-
-      // Obtenir le token ID pour le côté du trade
-      const tokenId = polymarketBuilder.getTokenId(market.tokens.yes, market.tokens.no, side)
-
-      // Vérifier l'allowance avant de placer l'ordre
-      const hasAllowance = await polymarketBuilder.ensureAllowance(
-        wallet.address,
-        tokenId,
-        strategy.orderAmount
-      )
-
-      if (!hasAllowance) {
-        console.error(
-          `Insufficient allowance for wallet ${wallet.address}. Order not placed.`
-        )
-        // Créer un trade avec le statut "failed" pour tracking
-        await Trade.create({
-          strategyId: strategy._id,
-          marketId: market.id,
-          side,
-          price: orderPrice,
-          size: strategy.orderAmount,
-          status: "failed",
-          executedAt: new Date(),
-        })
-        return
-      }
-
-      // Placer l'ordre sur Polymarket via le builder code
-      const orderResult = await polymarketBuilder.placeOrder(
-        wallet.address,
-        tokenId,
-        side,
-        orderPrice,
-        strategy.orderAmount
-      )
-
-      // Créer l'enregistrement de trade avec le résultat
-      await Trade.create({
-        strategyId: strategy._id,
-        marketId: market.id,
-        side,
-        price: orderPrice,
-        size: strategy.orderAmount,
-        status: orderResult.success ? "executed" : "failed",
-        executedAt: new Date(),
-      })
-
-    } catch (error) {
-      console.error(`Error executing trade for strategy ${strategy._id}:`, error)
-      // Enregistrer le trade comme échoué en cas d'erreur
-      try {
-        const market = await polymarketCLOB.getMarket(strategy.crypto, candleTimestamp)
-        if (market) {
-          await Trade.create({
-            strategyId: strategy._id,
-            marketId: market.id,
-            side,
-            price: 0,
-            size: strategy.orderAmount,
-            status: "failed",
-            executedAt: new Date(),
-          })
-        }
-      } catch (dbError) {
-        console.error("Error saving failed trade to database:", dbError)
-      }
+      await execution.runner.handlePriceUpdate(priceData)
     }
   }
 
@@ -317,25 +163,35 @@ class TradingEngine {
       return
     }
 
-    const strategyIdStr = String(strategy._id)
-    const walletIdStr = String(strategy.walletId)
+    const wallet = await Wallet.findById(strategy.walletId).lean<(IWallet & { _id: unknown }) | null>()
+    if (!wallet) {
+      console.warn(`TradingEngine: wallet not found for strategy ${strategyId}`)
+      return
+    }
 
-    const execution: StrategyExecution = {
-      strategyId: strategyIdStr,
-      walletId: walletIdStr,
+    const existing = this.activeStrategies.get(strategyId)
+    if (existing) {
+      existing.runner.updateStrategy(strategy)
+      existing.runner.updateWallet(wallet)
+      existing.crypto = strategy.crypto
+      existing.walletId = String(strategy.walletId)
+      this.ensureSubscription(strategy.crypto)
+      return
+    }
+
+    const runner = new TimedStrategyRunner({
+      strategy: strategy as IStrategy & { _id: unknown },
+      wallet: wallet as IWallet & { _id: unknown },
+    })
+
+    this.activeStrategies.set(strategyId, {
+      strategyId,
+      walletId: String(strategy.walletId),
       crypto: strategy.crypto,
-      lastExecutedCandle: null,
-    }
+      runner,
+    })
 
-    this.activeStrategies.set(strategyIdStr, execution)
-
-      // S'abonner au prix si nécessaire
-    if (!this.priceCallbacks.has(strategy.crypto)) {
-      const callback = (data: PriceData) => this.handlePriceUpdate(strategy.crypto, data)
-      this.priceCallbacks.set(strategy.crypto, callback)
-      const chainlinkStreams = getChainlinkStreams()
-      chainlinkStreams.subscribe(strategy.crypto, callback)
-    }
+    this.ensureSubscription(strategy.crypto)
   }
 
   /**
@@ -344,22 +200,10 @@ class TradingEngine {
   async removeStrategy(strategyId: string) {
     const execution = this.activeStrategies.get(strategyId)
     if (execution) {
+      execution.runner.stop()
       this.activeStrategies.delete(strategyId)
 
-      // Vérifier si d'autres stratégies utilisent cette crypto
-      const otherStrategies = Array.from(this.activeStrategies.values()).filter(
-        (exec) => exec.crypto === execution.crypto
-      )
-
-      if (otherStrategies.length === 0) {
-        // Se désabonner du prix
-        const callback = this.priceCallbacks.get(execution.crypto)
-        if (callback) {
-          const chainlinkStreams = getChainlinkStreams()
-          chainlinkStreams.unsubscribe(execution.crypto, callback)
-          this.priceCallbacks.delete(execution.crypto)
-        }
-      }
+      this.cleanupSubscription(execution.crypto)
     }
   }
 
@@ -372,7 +216,39 @@ class TradingEngine {
       chainlinkStreams.unsubscribe(crypto, callback)
     })
     this.priceCallbacks.clear()
+    this.activeStrategies.forEach((execution) => execution.runner.stop())
     this.activeStrategies.clear()
+  }
+
+  private ensureSubscription(crypto: Crypto) {
+    if (this.priceCallbacks.has(crypto)) {
+      return
+    }
+
+    const callback = (data: PriceData) => {
+      void this.handlePriceUpdate(crypto, data)
+    }
+
+    this.priceCallbacks.set(crypto, callback)
+    const chainlinkStreams = getChainlinkStreams()
+    chainlinkStreams.subscribe(crypto, callback)
+  }
+
+  private cleanupSubscription(crypto: Crypto) {
+    const stillUsed = Array.from(this.activeStrategies.values()).some(
+      (exec) => exec.crypto === crypto
+    )
+
+    if (stillUsed) {
+      return
+    }
+
+    const callback = this.priceCallbacks.get(crypto)
+    if (callback) {
+      const chainlinkStreams = getChainlinkStreams()
+      chainlinkStreams.unsubscribe(crypto, callback)
+      this.priceCallbacks.delete(crypto)
+    }
   }
 }
 

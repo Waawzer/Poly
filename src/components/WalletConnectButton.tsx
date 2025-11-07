@@ -13,8 +13,11 @@ export function WalletConnectButton() {
   const setUser = useStore((state) => state.setUser)
   const setWallet = useStore((state) => state.setWallet)
   const user = useStore((state) => state.user)
+  const wallet = useStore((state) => state.wallet)
 
   const [checkingSafe, setCheckingSafe] = useState(false)
+  const [usdcBalance, setUsdcBalance] = useState<number | null>(null)
+  const [loadingBalance, setLoadingBalance] = useState(false)
 
   const handleWalletAuth = useCallback(async (walletAddress: string) => {
     try {
@@ -117,6 +120,53 @@ export function WalletConnectButton() {
     }
   }, [address, handleDisconnect, handleWalletAuth, isConnected, user])
 
+  // Fetch USDC balance for account pill
+  useEffect(() => {
+    if (!wallet?._id) {
+      setUsdcBalance(null)
+      return
+    }
+
+    let isCancelled = false
+
+    const fetchBalance = async () => {
+      setLoadingBalance(true)
+      try {
+        const response = await fetch(`/api/wallets/${wallet._id}/balance`)
+        const data = await response.json()
+        if (!isCancelled && data.success) {
+          const raw = data.balance?.usdc
+          const parsed = typeof raw === "number" ? raw : raw ? parseFloat(raw) : null
+          setUsdcBalance(Number.isFinite(parsed ?? NaN) ? (parsed as number) : 0)
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Error fetching balance:", error)
+          setUsdcBalance(0)
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoadingBalance(false)
+        }
+      }
+    }
+
+    fetchBalance()
+    const interval = setInterval(fetchBalance, 30000)
+
+    return () => {
+      isCancelled = true
+      clearInterval(interval)
+    }
+  }, [wallet?._id])
+
+  const formattedUsdc = loadingBalance
+    ? "--"
+    : (usdcBalance ?? 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+
   return (
     <div className="flex items-center gap-2">
       <ConnectButton.Custom>
@@ -128,7 +178,7 @@ export function WalletConnectButton() {
           openConnectModal,
           authenticationStatus,
           mounted,
-        }) => {
+        }: any) => {
           // Note: If your app doesn't use authentication, you
           // can remove all 'authenticationStatus' checks
           const ready = mounted && authenticationStatus !== "loading"
@@ -211,12 +261,23 @@ export function WalletConnectButton() {
                     <button
                       onClick={openAccountModal}
                       type="button"
-                      className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-md transition-colors text-sm font-medium"
+                      className="flex items-center gap-3 rounded-xl border border-border/50 bg-secondary/70 px-4 py-2 text-left text-sm font-medium shadow-[0_10px_25px_rgba(51,197,255,0.18)] transition-all hover:-translate-y-0.5 hover:bg-secondary/80"
                     >
-                      {account.displayName}
-                      {account.displayBalance
-                        ? ` (${account.displayBalance})`
-                        : ""}
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary">
+                        <span className="font-semibold">
+                          {(account.displayName || "").slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-mono text-xs sm:text-sm text-primary-foreground">
+                          {account.displayBalance
+                            ? `${account.displayName} (${account.displayBalance})`
+                            : account.displayName}
+                        </span>
+                        <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                          USDC.e {formattedUsdc}
+                        </span>
+                      </div>
                     </button>
                   </div>
                 )

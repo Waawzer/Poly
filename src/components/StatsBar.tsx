@@ -86,7 +86,7 @@ export function StatsBar() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <Card>
+      <Card className="border-border/50 bg-card/80 backdrop-blur">
         <CardContent className="p-4">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Total PnL</p>
@@ -97,7 +97,7 @@ export function StatsBar() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/50 bg-card/80 backdrop-blur">
         <CardContent className="p-4">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Volume Effectué</p>
@@ -106,7 +106,7 @@ export function StatsBar() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/50 bg-card/80 backdrop-blur">
         <CardContent className="p-4">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Nombre d&apos;Ordres</p>
@@ -115,7 +115,7 @@ export function StatsBar() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/50 bg-card/80 backdrop-blur">
         <CardContent className="p-4">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Positions Redeemable</p>

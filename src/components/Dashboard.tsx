@@ -53,10 +53,10 @@ export function Dashboard() {
 
         {/* Strategy Creator - Right Side (1/3 width) */}
         <div className="lg:col-span-1">
-          <Card className="sticky top-4">
+          <Card className="sticky top-4 border-border/60 bg-card/80 backdrop-blur-xl shadow-[var(--shadow-glow)]">
             <CardHeader>
-              <CardTitle>Create Strategy</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-lg font-semibold tracking-wide text-foreground">Create Strategy</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
                 Set up an automated trading strategy
               </CardDescription>
             </CardHeader>

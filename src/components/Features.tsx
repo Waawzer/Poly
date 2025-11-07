@@ -35,19 +35,27 @@ export function Features() {
   ]
 
   return (
-    <section className="container mx-auto px-4 py-16 bg-muted/50">
-      <div className="text-center mb-12">
-        <h2 className="text-3xl font-bold mb-4">Features</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          A complete automated trading system for Polymarket
+    <section className="container mx-auto px-4 py-16">
+      <div className="mx-auto max-w-4xl text-center">
+        <h2 className="text-3xl font-bold tracking-tight">Everything you need to run a Polymarket bot</h2>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Purpose-built automation with Safe Wallet support, rapid execution, and realtime monitoring.
         </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {features.map((feature, index) => (
-          <div key={index} className="p-6 rounded-lg border bg-card hover:shadow-lg transition-shadow">
-            <div className="text-4xl mb-4">{feature.icon}</div>
-            <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-            <p className="text-sm text-muted-foreground">{feature.description}</p>
+          <div
+            key={index}
+            className="group relative overflow-hidden rounded-2xl border border-border/40 bg-card/80 p-5 shadow-[0_20px_50px_rgba(33,22,68,0.35)] transition-transform duration-300 hover:-translate-y-1"
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(51,197,255,0.25),_transparent_55%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+            <div className="relative">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/25 text-xl text-primary-foreground">
+                {feature.icon}
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">{feature.title}</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{feature.description}</p>
+            </div>
           </div>
         ))}
       </div>

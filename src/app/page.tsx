@@ -14,7 +14,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <LivePricesBar />
-      <main className="flex-1">
+      <main className="flex-1 bg-transparent">
         {!user ? (
           <>
             <Hero />
@@ -24,9 +24,9 @@ export default function Home() {
           <Dashboard />
         )}
       </main>
-      <footer className="border-t py-6 mt-auto">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>Poly Trading Bot - Automated Trading for Polymarket</p>
+      <footer className="mt-auto border-t border-border/40 bg-secondary/50 py-6 backdrop-blur">
+        <div className="container mx-auto px-4 text-center text-xs sm:text-sm text-muted-foreground">
+          <p>Poly Trading Bot · Automated Trading for Polymarket</p>
         </div>
       </footer>
     </div>

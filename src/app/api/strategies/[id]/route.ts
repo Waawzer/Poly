@@ -33,13 +33,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Strategy not found after update" }, { status: 404 })
     }
 
-    // Mettre à jour le moteur de trading
-    if (updates.enabled !== undefined) {
-      if (updates.enabled) {
-        await tradingEngine.addStrategy(id)
-      } else {
-        await tradingEngine.removeStrategy(id)
-      }
+    // Rafraîchir le moteur de trading avec la configuration à jour
+    if (updatedStrategy.enabled) {
+      await tradingEngine.addStrategy(id)
+    } else {
+      await tradingEngine.removeStrategy(id)
     }
 
     return NextResponse.json({
