@@ -1,4 +1,4 @@
-import { Redis } from "@upstash/redis"
+import { Redis, type SetCommandOptions } from "@upstash/redis"
 
 // Wrapper pour Redis qui gère le cas où il n'est pas configuré
 class RedisWrapper {
@@ -30,7 +30,11 @@ class RedisWrapper {
   async set(key: string, value: string, options?: { ex?: number }): Promise<void> {
     if (!this.client) return
     try {
-      await this.client.set(key, value, options)
+      let setOptions: SetCommandOptions | undefined
+      if (options?.ex !== undefined) {
+        setOptions = { ex: options.ex }
+      }
+      await this.client.set(key, value, setOptions)
     } catch (error) {
       console.error("Redis set error:", error)
     }

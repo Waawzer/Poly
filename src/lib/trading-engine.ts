@@ -1,7 +1,7 @@
 import connectDB from "./mongodb"
-import Strategy from "@/models/Strategy"
+import Strategy, { type IStrategy } from "@/models/Strategy"
 import Trade from "@/models/Trade"
-import Wallet from "@/models/Wallet"
+import Wallet, { type IWallet } from "@/models/Wallet"
 import { getChainlinkStreams } from "./chainlink"
 import { polymarketCLOB } from "./polymarket"
 import { polymarketBuilder } from "./polymarket-builder"
@@ -18,7 +18,7 @@ interface StrategyExecution {
 
 class TradingEngine {
   private activeStrategies: Map<string, StrategyExecution> = new Map()
-  private priceCallbacks: Map<string, (data: PriceData) => void> = new Map()
+  private priceCallbacks: Map<Crypto, (data: PriceData) => void> = new Map()
 
   /**
    * Initialise le moteur de trading
@@ -52,12 +52,19 @@ class TradingEngine {
    * Charge les stratégies actives depuis la base de données
    */
   private async loadActiveStrategies() {
-    const strategies = await Strategy.find({ enabled: true }).lean()
+    const strategies = await Strategy.find({ enabled: true }).lean<Array<{
+      _id: unknown
+      walletId: unknown
+      crypto: Crypto
+    }>>()
 
     strategies.forEach((strategy) => {
-      this.activeStrategies.set(strategy._id.toString(), {
-        strategyId: strategy._id.toString(),
-        walletId: strategy.walletId.toString(),
+      const strategyId = String(strategy._id)
+      const walletId = String(strategy.walletId)
+
+      this.activeStrategies.set(strategyId, {
+        strategyId,
+        walletId,
         crypto: strategy.crypto,
         lastExecutedCandle: null,
       })
@@ -123,7 +130,7 @@ class TradingEngine {
         return
       }
 
-      const strategy = await Strategy.findById(execution.strategyId).lean()
+      const strategy = await Strategy.findById(execution.strategyId).lean<(IStrategy & { _id: unknown }) | null>()
       if (!strategy || !strategy.enabled) {
         return
       }
@@ -197,7 +204,7 @@ class TradingEngine {
   ) {
     try {
       // Récupérer le wallet associé à la stratégie
-      const wallet = await Wallet.findById(execution.walletId).lean()
+      const wallet = await Wallet.findById(execution.walletId).lean<(IWallet & { _id: unknown }) | null>()
       if (!wallet) {
         console.error(`Wallet not found for strategy ${strategy._id}`)
         return
@@ -305,27 +312,30 @@ class TradingEngine {
    * Ajoute une stratégie active
    */
   async addStrategy(strategyId: string) {
-    const strategy = await Strategy.findById(strategyId).lean()
+    const strategy = await Strategy.findById(strategyId).lean<(IStrategy & { _id: unknown }) | null>()
     if (!strategy || !strategy.enabled) {
       return
     }
 
+    const strategyIdStr = String(strategy._id)
+    const walletIdStr = String(strategy.walletId)
+
     const execution: StrategyExecution = {
-      strategyId: strategy._id.toString(),
-      walletId: strategy.walletId.toString(),
+      strategyId: strategyIdStr,
+      walletId: walletIdStr,
       crypto: strategy.crypto,
       lastExecutedCandle: null,
     }
 
-    this.activeStrategies.set(strategyId, execution)
+    this.activeStrategies.set(strategyIdStr, execution)
 
       // S'abonner au prix si nécessaire
-      if (!this.priceCallbacks.has(strategy.crypto)) {
-        const callback = (data: PriceData) => this.handlePriceUpdate(strategy.crypto, data)
-        this.priceCallbacks.set(strategy.crypto, callback)
-        const chainlinkStreams = getChainlinkStreams()
-        chainlinkStreams.subscribe(strategy.crypto, callback)
-      }
+    if (!this.priceCallbacks.has(strategy.crypto)) {
+      const callback = (data: PriceData) => this.handlePriceUpdate(strategy.crypto, data)
+      this.priceCallbacks.set(strategy.crypto, callback)
+      const chainlinkStreams = getChainlinkStreams()
+      chainlinkStreams.subscribe(strategy.crypto, callback)
+    }
   }
 
   /**

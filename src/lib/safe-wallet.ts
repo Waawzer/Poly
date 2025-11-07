@@ -1,6 +1,8 @@
 import SafeAppsSDK from "@safe-global/safe-apps-sdk"
 import { ethers } from "ethers"
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
 // Client-side only
 export function getSDK() {
   if (typeof window === "undefined") {
@@ -12,12 +14,14 @@ export function getSDK() {
         // Not in an iframe, might not be in Safe Wallet
       }
   
+  const allowedDomainStrings = [
+    process.env.NEXT_PUBLIC_SAFE_APP_URL || "http://localhost:3000",
+    "https://app.safe.global",
+    "https://safe-apps.dev.5afe.dev",
+  ]
+
   const opts = {
-    allowedDomains: [
-      process.env.NEXT_PUBLIC_SAFE_APP_URL || "http://localhost:3000",
-      "https://app.safe.global",
-      "https://safe-apps.dev.5afe.dev",
-    ],
+    allowedDomains: allowedDomainStrings.map((domain) => new RegExp(`^${escapeRegExp(domain)}$`)),
     debug: process.env.NODE_ENV === "development",
   }
   return new SafeAppsSDK(opts)
@@ -43,27 +47,29 @@ export async function initSafeWallet() {
     }
 
     // For Safe Apps SDK, we need to use the safe property
-    // The SDK structure: sdkInstance.safe.getSafeInfo()
-    let safeInfo
-    
-    // Check if safe property exists
-    if (!sdkInstance.safe) {
+    const safeObj = (sdkInstance as any)?.safe
+
+    if (!safeObj) {
       throw new Error("Safe Wallet not detected. Please open this app in Safe Wallet.")
     }
 
+    let safeInfo
+
     // Try to call getSafeInfo - it should be available on the safe object
     try {
-      // The correct way for Safe Apps SDK v9
-      safeInfo = await sdkInstance.safe.getSafeInfo()
+      if (typeof safeObj.getSafeInfo === "function") {
+        safeInfo = await safeObj.getSafeInfo()
+      } else {
+        throw new Error("getSafeInfo method not available on Safe SDK")
+      }
     } catch (methodError: any) {
       // If getSafeInfo doesn't exist, the SDK might be initialized differently
       console.error("getSafeInfo method error:", methodError)
       
       // Check if the safe object has the info directly
-      const safeObj = sdkInstance.safe as any
       if (safeObj && (safeObj.safeAddress || safeObj.getSafeInfo)) {
         // Try alternative method name
-        if (typeof safeObj.getSafeInfo === 'function') {
+        if (typeof safeObj.getSafeInfo === "function") {
           safeInfo = await safeObj.getSafeInfo()
         } else if (safeObj.safeAddress) {
           // Info might be available synchronously
@@ -141,7 +147,17 @@ export async function getSafeAddress(): Promise<string | null> {
  */
 export async function signMessage(message: string): Promise<string> {
   try {
-    const safe = await sdk.safe.getSafeInfo()
+    if (!sdk?.safe) {
+      throw new Error("Safe SDK not initialized")
+    }
+
+    const safeObj = sdk.safe as any
+    const getSafeInfoFn = typeof safeObj.getSafeInfo === "function" ? safeObj.getSafeInfo.bind(safeObj) : null
+    const safe = getSafeInfoFn ? await getSafeInfoFn() : null
+    if (!safe || !safe.safeAddress) {
+      throw new Error("Safe Wallet info unavailable")
+    }
+
     const provider = await getSafeProvider()
     if (!provider) {
       throw new Error("Safe provider not available")

@@ -1,7 +1,41 @@
-import { ClobClient, Side } from "@polymarket/clob-client"
+import * as clobClientModule from "@polymarket/clob-client"
 import { BuilderConfig } from "@polymarket/builder-signing-sdk"
 import { ethers } from "ethers"
 import type { Crypto, TradeSide } from "@/types"
+
+type ClobClientConstructor = new (
+  host: string,
+  chainId?: number,
+  signer?: ethers.Wallet,
+  creds?: any,
+  signatureType?: number,
+  funderAddress?: string,
+  options?: any,
+  skipSync?: boolean,
+  builderConfig?: any
+) => any
+
+type ClobSide = {
+  BUY: any
+  SELL: any
+}
+
+let ClobClientClass: ClobClientConstructor | null = null
+let ClobSideEnum: ClobSide = {
+  BUY: "buy",
+  SELL: "sell",
+}
+
+const clobModule: any = clobClientModule
+if (clobModule?.ClobClient) {
+  ClobClientClass = clobModule.ClobClient
+}
+if (clobModule?.Side) {
+  ClobSideEnum = clobModule.Side
+}
+if (!ClobClientClass) {
+  console.error("Failed to load ClobClient from @polymarket/clob-client")
+}
 
 // Configuration du réseau Polygon
 const POLYGON_RPC_URL = process.env.POLYGON_RPC_URL || "https://polygon-rpc.com"
@@ -22,7 +56,7 @@ try {
 }
 
 class PolymarketBuilderClient {
-  private clobClient: ClobClient | null = null
+  private clobClient: any | null = null
   private provider: ethers.JsonRpcProvider | null = null
   private initialized: boolean = false
 
@@ -57,8 +91,12 @@ class PolymarketBuilderClient {
       // Les signatures seront faites par le builder code via la route API
       const dummyWallet = new ethers.Wallet(ethers.Wallet.createRandom().privateKey, this.provider)
 
+      if (!ClobClientClass) {
+        throw new Error("ClobClient class is not available")
+      }
+
       // Créer le client CLOB avec le builder signing
-      this.clobClient = new ClobClient(
+      this.clobClient = new ClobClientClass(
         POLYMARKET_CLOB_HOST,
         CHAIN_ID,
         dummyWallet,
@@ -100,10 +138,15 @@ class PolymarketBuilderClient {
       // Convertir le côté du trade
       // Pour UP, on achète le token YES (Side.BUY)
       // Pour DOWN, on achète le token NO, donc on vend le token YES (Side.SELL)
-      const orderSide = side === "UP" ? Side.BUY : Side.SELL
+      const orderSide = side === "UP" ? ClobSideEnum.BUY : ClobSideEnum.SELL
 
       // Créer l'ordre avec le wallet address spécifié
-      const order = await this.clobClient.createOrder({
+      const client = this.clobClient as any
+      if (!client?.createOrder) {
+        throw new Error("ClobClient.createOrder is not available in this version of @polymarket/clob-client")
+      }
+
+      const order = await client.createOrder({
         price: price.toString(),
         side: orderSide,
         size: size.toString(),
@@ -112,7 +155,11 @@ class PolymarketBuilderClient {
       })
 
       // Envoyer l'ordre (la signature sera automatiquement gérée par le builder signing)
-      const response = await this.clobClient.postOrder(order)
+      if (!client?.postOrder) {
+        throw new Error("ClobClient.postOrder is not available in this version of @polymarket/clob-client")
+      }
+
+      const response = await client.postOrder(order)
 
       return {
         success: true,
@@ -142,7 +189,12 @@ class PolymarketBuilderClient {
 
     try {
       // Vérifier l'allowance actuelle
-      const allowance = await this.clobClient.getAllowance(walletAddress, tokenId)
+      const client = this.clobClient as any
+      if (!client?.getAllowance) {
+        throw new Error("ClobClient.getAllowance is not available in this version of @polymarket/clob-client")
+      }
+
+      const allowance = await client.getAllowance(walletAddress, tokenId)
       return allowance
     } catch (error) {
       console.error("Error checking allowance:", error)
@@ -198,7 +250,12 @@ class PolymarketBuilderClient {
     try {
       // Utiliser le ClobClient pour approuver l'allowance
       // Cela nécessite que signer soit le wallet de l'utilisateur
-      const tx = await this.clobClient.approveAllowance({
+      const client = this.clobClient as any
+      if (!client?.approveAllowance) {
+        throw new Error("ClobClient.approveAllowance is not available in this version of @polymarket/clob-client")
+      }
+
+      const tx = await client.approveAllowance({
         tokenID: tokenId,
         amount: amount.toString(),
         signer: signer,
