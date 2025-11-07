@@ -5,6 +5,13 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -21,6 +28,77 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// node_modules/@polymarket/clob-client/dist/helpers/index.js
+var import_axios3, request, get;
+var init_helpers = __esm({
+  "node_modules/@polymarket/clob-client/dist/helpers/index.js"() {
+    "use strict";
+    import_axios3 = __toESM(require("axios"));
+    request = async (endpoint, method, headers, data) => {
+      return (0, import_axios3.default)({
+        method,
+        url: endpoint,
+        headers,
+        data
+      });
+    };
+    get = async (endpoint, headers, data) => {
+      return request(endpoint, "GET", headers, data);
+    };
+  }
+});
+
+// node_modules/@polymarket/clob-client/dist/client.js
+var ClobClient;
+var init_client = __esm({
+  "node_modules/@polymarket/clob-client/dist/client.js"() {
+    "use strict";
+    init_helpers();
+    ClobClient = class {
+      constructor(host, signer, creds) {
+        this.host = host;
+        if (signer !== void 0) {
+          if (signer.provider == null || signer.provider._isProvider) {
+            throw new Error("signer not connected to a provider!");
+          }
+          this.signer = signer;
+        }
+        if (creds !== void 0) {
+          this.creds = creds;
+        }
+      }
+      // Public endpoints
+      async getOk() {
+        return get(`${this.host}/`);
+      }
+      async getServerTime() {
+        return get(`${this.host}/time`);
+      }
+    };
+  }
+});
+
+// node_modules/@polymarket/clob-client/dist/types.js
+var init_types = __esm({
+  "node_modules/@polymarket/clob-client/dist/types.js"() {
+    "use strict";
+  }
+});
+
+// node_modules/@polymarket/clob-client/dist/index.js
+var dist_exports = {};
+__export(dist_exports, {
+  ClobClient: () => ClobClient
+});
+var init_dist = __esm({
+  "node_modules/@polymarket/clob-client/dist/index.js"() {
+    "use strict";
+    init_client();
+    init_types();
+  }
+});
 
 // src/lib/render-server.ts
 var import_config = require("dotenv/config");
@@ -206,7 +284,7 @@ var RedisWrapper = class {
     if (!this.client) return;
     try {
       let setOptions;
-      if ((options == null ? void 0 : options.ex) !== void 0) {
+      if (options?.ex !== void 0) {
         setOptions = { ex: options.ex };
       }
       await this.client.set(key, value, setOptions);
@@ -485,7 +563,6 @@ var ChainlinkDataStreams = class {
    * Récupère un rapport depuis l'API REST Chainlink au timestamp spécifié
    */
   async fetchReportFromChainlinkAPI(feedId, timestamp) {
-    var _a;
     if (!CHAINLINK_API_URL || !CHAINLINK_USER_ID || !CHAINLINK_USER_SECRET) {
       return null;
     }
@@ -509,7 +586,7 @@ var ChainlinkDataStreams = class {
             return response.data;
           }
         } catch (error) {
-          if (((_a = error.response) == null ? void 0 : _a.status) !== 404) {
+          if (error.response?.status !== 404) {
             continue;
           }
         }
@@ -536,12 +613,11 @@ var ChainlinkDataStreams = class {
    * au timestamp exact de la bougie (00:00, 00:15, 00:30, 00:45)
    */
   async fetchCandleOpenPriceFromChainlink(crypto2, candleTimestamp) {
-    var _a;
     if (!this.client && !CHAINLINK_API_URL) {
       return null;
     }
     try {
-      const feedId = (_a = Object.entries(FEED_ID_TO_CRYPTO).find(([_, c]) => c === crypto2)) == null ? void 0 : _a[0];
+      const feedId = Object.entries(FEED_ID_TO_CRYPTO).find(([_, c]) => c === crypto2)?.[0];
       if (!feedId) {
         return null;
       }
@@ -603,7 +679,6 @@ var ChainlinkDataStreams = class {
     return null;
   }
   async getLatestPrice(crypto2) {
-    var _a;
     try {
       const cached2 = await redis_default.get(CACHE_KEYS.price(crypto2));
       if (cached2) {
@@ -627,7 +702,7 @@ var ChainlinkDataStreams = class {
     }
     if (this.client) {
       try {
-        const feedId = (_a = Object.entries(FEED_ID_TO_CRYPTO).find(([_, c]) => c === crypto2)) == null ? void 0 : _a[0];
+        const feedId = Object.entries(FEED_ID_TO_CRYPTO).find(([_, c]) => c === crypto2)?.[0];
         if (feedId) {
           const report = await this.client.getLatestReport(feedId);
           if (report) {
@@ -765,7 +840,6 @@ var PolymarketCLOB = class {
    * Récupère un marché complet en combinant les endpoints events et markets de l'API Gamma
    */
   async fetchMarketBySlug(slug) {
-    var _a;
     try {
       const eventUrl = `${GAMMA_EVENT_SLUG_ENDPOINT}/${slug}`;
       const eventResp = await import_axios2.default.get(eventUrl, { timeout: 1e4 });
@@ -813,7 +887,7 @@ var PolymarketCLOB = class {
         clobTokenIds
       };
     } catch (error) {
-      if (((_a = error.response) == null ? void 0 : _a.status) === 404) {
+      if (error.response?.status === 404) {
         return null;
       }
       console.error(`Error fetching market by slug ${slug}:`, error.message);
@@ -881,7 +955,6 @@ var PolymarketCLOB = class {
    * Place un ordre d'achat
    */
   async buyOrder(marketId, side, price, size, signature, walletAddress) {
-    var _a;
     try {
       const response = await import_axios2.default.post(
         `${this.baseURL}/orders`,
@@ -901,7 +974,7 @@ var PolymarketCLOB = class {
       );
       return response.data;
     } catch (error) {
-      console.error("Error placing order:", ((_a = error.response) == null ? void 0 : _a.data) || error.message);
+      console.error("Error placing order:", error.response?.data || error.message);
       throw error;
     }
   }
@@ -932,7 +1005,7 @@ var PolymarketCLOB = class {
 var polymarketCLOB = new PolymarketCLOB();
 
 // src/lib/polymarket-builder.ts
-var clobClientModule = __toESM(require("@polymarket/clob-client"));
+init_dist();
 var import_builder_signing_sdk = require("@polymarket/builder-signing-sdk");
 var import_ethers = require("ethers");
 var ClobClientClass = null;
@@ -940,11 +1013,11 @@ var ClobSideEnum = {
   BUY: "buy",
   SELL: "sell"
 };
-var clobModule = clobClientModule;
-if (clobModule == null ? void 0 : clobModule.ClobClient) {
+var clobModule = dist_exports;
+if (clobModule?.ClobClient) {
   ClobClientClass = clobModule.ClobClient;
 }
-if (clobModule == null ? void 0 : clobModule.Side) {
+if (clobModule?.Side) {
   ClobSideEnum = clobModule.Side;
 }
 if (!ClobClientClass) {
@@ -955,9 +1028,9 @@ var POLYMARKET_CLOB_HOST = process.env.POLYMARKET_CLOB_HOST || "https://clob.pol
 var CHAIN_ID = parseInt(process.env.POLYGON_CHAIN_ID || "137");
 var SignatureTypeValue = 3;
 try {
-  const clobClientModule2 = require("@polymarket/clob-client");
-  if (clobClientModule2.SignatureType && clobClientModule2.SignatureType.POLY_PROXY !== void 0) {
-    SignatureTypeValue = clobClientModule2.SignatureType.POLY_PROXY;
+  const clobClientModule = (init_dist(), __toCommonJS(dist_exports));
+  if (clobClientModule.SignatureType && clobClientModule.SignatureType.POLY_PROXY !== void 0) {
+    SignatureTypeValue = clobClientModule.SignatureType.POLY_PROXY;
   }
 } catch {
   SignatureTypeValue = 3;
@@ -1019,7 +1092,7 @@ var PolymarketBuilderClient = class {
     try {
       const orderSide = side === "UP" ? ClobSideEnum.BUY : ClobSideEnum.SELL;
       const client = this.clobClient;
-      if (!(client == null ? void 0 : client.createOrder)) {
+      if (!client?.createOrder) {
         throw new Error("ClobClient.createOrder is not available in this version of @polymarket/clob-client");
       }
       const order = await client.createOrder({
@@ -1029,7 +1102,7 @@ var PolymarketBuilderClient = class {
         tokenID: tokenId,
         walletAddress: walletAddress.toLowerCase()
       });
-      if (!(client == null ? void 0 : client.postOrder)) {
+      if (!client?.postOrder) {
         throw new Error("ClobClient.postOrder is not available in this version of @polymarket/clob-client");
       }
       const response = await client.postOrder(order);
@@ -1055,7 +1128,7 @@ var PolymarketBuilderClient = class {
     }
     try {
       const client = this.clobClient;
-      if (!(client == null ? void 0 : client.getAllowance)) {
+      if (!client?.getAllowance) {
         throw new Error("ClobClient.getAllowance is not available in this version of @polymarket/clob-client");
       }
       const allowance = await client.getAllowance(walletAddress, tokenId);
@@ -1098,7 +1171,7 @@ var PolymarketBuilderClient = class {
     }
     try {
       const client = this.clobClient;
-      if (!(client == null ? void 0 : client.approveAllowance)) {
+      if (!client?.approveAllowance) {
         throw new Error("ClobClient.approveAllowance is not available in this version of @polymarket/clob-client");
       }
       const tx = await client.approveAllowance({
@@ -1333,7 +1406,6 @@ var TimedStrategyRunner = class {
     };
   }
   async ensureMarket(candleTimestamp) {
-    var _a, _b;
     if (this.currentMarket) {
       return this.currentMarket;
     }
@@ -1345,7 +1417,7 @@ var TimedStrategyRunner = class {
         );
         return null;
       }
-      if (!((_a = market.tokens) == null ? void 0 : _a.yes) || !((_b = market.tokens) == null ? void 0 : _b.no)) {
+      if (!market.tokens?.yes || !market.tokens?.no) {
         console.warn(
           `TimedStrategyRunner(${this.strategy.crypto}) market ${market.id} missing token IDs`
         );
@@ -1367,7 +1439,6 @@ var TimedStrategyRunner = class {
     price,
     priceDiff
   }) {
-    var _a;
     if (!this.currentCandleTimestamp) {
       return;
     }
@@ -1405,7 +1476,7 @@ var TimedStrategyRunner = class {
       console.info(
         `TimedStrategyRunner(${this.strategy.crypto}) placing ${side} order | diff=$${priceDiff.toFixed(
           2
-        )} | open=$${((_a = this.candleOpenPrice) == null ? void 0 : _a.toFixed(2)) ?? "?"} | current=$${price.toFixed(2)}`
+        )} | open=$${this.candleOpenPrice?.toFixed(2) ?? "?"} | current=$${price.toFixed(2)}`
       );
       const orderResult = await polymarketBuilder.placeOrder(
         this.wallet.address,

@@ -6,7 +6,7 @@
     "dev": "node scripts/dev.js",
     "dev:next": "next dev",
     "lint": "next lint",
-    "build": "tsup src/lib/render-server.ts --format cjs --out-dir dist",
+    "build": "tsup --config tsup.config.ts",
     "start": "node dist/render-server.js"
   },
   "dependencies": {
