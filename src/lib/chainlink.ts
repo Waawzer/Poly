@@ -146,7 +146,16 @@ class ChainlinkDataStreams {
         }
         try {
           const big = typeof value === "bigint" ? value : BigInt(value)
-          return Number(big) / 1e8
+          const abs = Number(big >= 0n ? big : -big)
+          let divider = 1e8
+          if (abs > 1e18) {
+            divider = 1e18
+          } else if (abs < 1e6) {
+            divider = 1e6
+          }
+          const result = Number(big) / divider
+          console.debug(`[Chainlink] normalizeInt192 raw=${big.toString()} divider=${divider} -> ${result}`)
+          return result
         } catch (error) {
           console.warn("[Chainlink] Failed to normalize int192 value", value, error)
           return undefined
