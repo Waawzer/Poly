@@ -118,21 +118,18 @@ class ChainlinkDataStreams {
 
   private async handleReport(report: any) {
     try {
-      console.debug("[Chainlink] Received report payload", report?.feedID ?? "unknown")
       const decoded = report?.fullReport && report?.feedID ? decodeReport(report.fullReport, report.feedID) : report
       const decodedReport: any =
         decoded?.report ?? decoded?.payload ?? decoded
 
       const feedId = decodedReport?.feedID ?? decoded?.feedID ?? report?.feedID
       if (!feedId) {
-        console.debug("[Chainlink] Report without feedID ignored", JSON.stringify(decoded))
         return
       }
 
       const crypto = FEED_ID_TO_CRYPTO[feedId]
 
       if (!crypto || !("BTC,ETH,XRP,SOL".split(",") as Crypto[]).includes(crypto)) {
-        console.debug(`[Chainlink] Feed ${feedId} not mapped, ignoring`)
         return
       }
 
@@ -167,9 +164,7 @@ class ChainlinkDataStreams {
           } else if (abs < 1e6) {
             divider = 1e6
           }
-          const result = Number(big) / divider
-          console.debug(`[Chainlink] normalizeInt192 raw=${big.toString()} divider=${divider} -> ${result}`)
-          return result
+          return Number(big) / divider
         } catch (error) {
           console.warn("[Chainlink] Failed to normalize int192 value", value, error)
           return undefined
@@ -208,7 +203,6 @@ class ChainlinkDataStreams {
       }
 
       if (typeof price !== "number" || !price || isNaN(price)) {
-        console.debug(`[Chainlink] Invalid price in report for ${crypto} ->`, JSON.stringify(decodedReport))
         return
       }
 
@@ -263,7 +257,6 @@ class ChainlinkDataStreams {
 
       // Mettre en cache dans Redis (expiration de 5 minutes pour permettre des mises à jour plus fréquentes)
       await redis.set(CACHE_KEYS.price(crypto), JSON.stringify(priceData), { ex: 300 })
-      console.debug(`[Chainlink] Stored latest price for ${crypto}: $${priceData.price}`)
 
       // Sauvegarder dans MongoDB
       try {
