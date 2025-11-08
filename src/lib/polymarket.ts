@@ -120,12 +120,21 @@ class PolymarketCLOB {
       // Vérifier le cache
       const cached = await redis.get<string>(cacheKey)
       if (cached !== null) {
-        // Sinon, parser le JSON
-        try {
-          const parsed = JSON.parse(cached)
-          return parsed
-        } catch {
-          // Si le parsing échoue, ignorer le cache et continuer
+        if (cached === "null") {
+          // Cache négatif obsolète – le supprimer et continuer
+          await redis.del(cacheKey)
+        } else {
+          // Sinon, parser le JSON
+          try {
+            const parsed = JSON.parse(cached)
+            if (parsed) {
+              return parsed
+            }
+            await redis.del(cacheKey)
+          } catch {
+            // Si le parsing échoue, supprimer le cache et continuer
+            await redis.del(cacheKey)
+          }
         }
       }
 

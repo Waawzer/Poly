@@ -39,6 +39,15 @@ class RedisWrapper {
       console.error("Redis set error:", error)
     }
   }
+
+  async del(key: string): Promise<void> {
+    if (!this.client) return
+    try {
+      await this.client.del(key)
+    } catch (error) {
+      console.error("Redis del error:", error)
+    }
+  }
 }
 
 const redis = new RedisWrapper()
