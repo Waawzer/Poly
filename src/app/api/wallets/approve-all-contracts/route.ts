@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     // Adresses des contrats Polymarket à approuver
     const addressesToApprove = {
       "Polymarket Exchange": process.env.NEXT_PUBLIC_POLYMARKET_EXCHANGE_ADDRESS || "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E",
+      "Polymarket CLOB Proxy": process.env.NEXT_PUBLIC_POLYMARKET_CLOB_PROXY_ADDRESS || "0xb57aF06b944dF7dF17b9661652f72B954286eE07",
       "CTF Exchange": process.env.NEXT_PUBLIC_CTF_EXCHANGE_ADDRESS || "0xC5d563A36AE78145C45a50134d48A1215220f80a",
       "ConditionalTokens": process.env.NEXT_PUBLIC_CONDITIONAL_TOKENS_ADDRESS || "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045",
       "Neg Risk CTF Exchange": process.env.NEXT_PUBLIC_NEG_RISK_CTF_EXCHANGE_ADDRESS || "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296",

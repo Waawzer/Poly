@@ -29,7 +29,13 @@ const USDC_ABI = [
 ]
 
 // Adresse Polymarket Exchange (nécessite un montant élevé d'allowance)
-const POLYMARKET_EXCHANGE_ADDRESS = (process.env.NEXT_PUBLIC_POLYMARKET_EXCHANGE_ADDRESS as string) || "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E"
+const POLYMARKET_EXCHANGE_ADDRESS =
+  (process.env.NEXT_PUBLIC_POLYMARKET_EXCHANGE_ADDRESS as string) ||
+  "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E"
+
+const POLYMARKET_CLOB_PROXY_ADDRESS =
+  (process.env.NEXT_PUBLIC_POLYMARKET_CLOB_PROXY_ADDRESS as string) ||
+  "0xb57aF06b944dF7dF17b9661652f72B954286eE07"
 
 // Adresses des contrats Polymarket (valeurs par défaut si env vars ne sont pas définies)
 const getDefaultApprovalInfo = (walletAddress: string): ApprovalInfo => ({
@@ -37,6 +43,7 @@ const getDefaultApprovalInfo = (walletAddress: string): ApprovalInfo => ({
   usdcAddress: (process.env.NEXT_PUBLIC_USDC_ADDRESS as string) || "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
   addressesToApprove: {
     "Polymarket Exchange": POLYMARKET_EXCHANGE_ADDRESS,
+    "Polymarket CLOB Proxy": POLYMARKET_CLOB_PROXY_ADDRESS,
     "CTF Exchange": (process.env.NEXT_PUBLIC_CTF_EXCHANGE_ADDRESS as string) || "0xC5d563A36AE78145C45a50134d48A1215220f80a",
     "ConditionalTokens": (process.env.NEXT_PUBLIC_CONDITIONAL_TOKENS_ADDRESS as string) || "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045",
     "Neg Risk CTF Exchange": (process.env.NEXT_PUBLIC_NEG_RISK_CTF_EXCHANGE_ADDRESS as string) || "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296",
@@ -45,7 +52,11 @@ const getDefaultApprovalInfo = (walletAddress: string): ApprovalInfo => ({
 
 // Vérifie si une adresse nécessite un montant élevé d'allowance
 const requiresHighAllowance = (address: string): boolean => {
-  return address.toLowerCase() === POLYMARKET_EXCHANGE_ADDRESS.toLowerCase()
+  const normalized = address.toLowerCase()
+  return (
+    normalized === POLYMARKET_EXCHANGE_ADDRESS.toLowerCase() ||
+    normalized === POLYMARKET_CLOB_PROXY_ADDRESS.toLowerCase()
+  )
 }
 
 // Montant minimum d'allowance requis selon l'adresse
