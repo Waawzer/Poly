@@ -17,13 +17,22 @@ class PolymarketCLOB {
     this.baseURL = POLYMARKET_CLOB_API_URL
   }
 
+  private normalizeTimestampSeconds(timestamp: number): number {
+    // If timestamp looks like milliseconds, convert to seconds
+    if (timestamp > 1e12) {
+      return Math.floor(timestamp / 1000)
+    }
+    return timestamp
+  }
+
   /**
    * Génère le slug du marché pour une crypto et une bougie 15m
    * Format: {crypto_lower}-updown-15m-{timestamp}
    */
   getMarketSlug(crypto: Crypto, candleTimestamp: number): string {
     const cryptoLower = crypto.toLowerCase()
-    return `${cryptoLower}-updown-15m-${candleTimestamp}`
+    const timestampSeconds = this.normalizeTimestampSeconds(candleTimestamp)
+    return `${cryptoLower}-updown-15m-${timestampSeconds}`
   }
 
   /**
@@ -103,7 +112,8 @@ class PolymarketCLOB {
    * Utilise les endpoints /events/slug et /markets/slug pour obtenir toutes les informations
    */
   async getMarket(crypto: Crypto, candleTimestamp: number): Promise<MarketData | null> {
-    const cacheKey = CACHE_KEYS.market(crypto, candleTimestamp)
+    const normalizedTimestamp = this.normalizeTimestampSeconds(candleTimestamp)
+    const cacheKey = CACHE_KEYS.market(crypto, normalizedTimestamp)
 
     try {
       // Vérifier le cache
@@ -122,7 +132,7 @@ class PolymarketCLOB {
         }
       }
 
-      const slug = this.getMarketSlug(crypto, candleTimestamp)
+      const slug = this.getMarketSlug(crypto, normalizedTimestamp)
 
       // Récupérer le marché via l'API Gamma
       const completeMarket = await this.fetchMarketBySlug(slug)

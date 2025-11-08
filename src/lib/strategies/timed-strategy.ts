@@ -352,8 +352,10 @@ export class TimedStrategyRunner {
     try {
       const market = await polymarketCLOB.getMarket(this.strategy.crypto, marketTimestamp)
       if (!market) {
+        const slugTimestampSeconds =
+          marketTimestamp > 1e12 ? Math.floor(marketTimestamp / 1000) : marketTimestamp
         console.debug(
-        `TimedStrategyRunner(${this.strategy.crypto}) no active market for slug timestamp ${marketTimestamp}`
+          `TimedStrategyRunner(${this.strategy.crypto}) no active market for slug timestamp ${slugTimestampSeconds}`
       )
         return null
       }
