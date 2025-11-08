@@ -72,8 +72,9 @@ class PolymarketBuilderClient {
     try {
       // Vérifier que les credentials builder sont configurés
       if (!process.env.POLY_BUILDER_API_KEY || !process.env.POLY_BUILDER_SECRET) {
-        // Ne pas logger d'erreur si les credentials ne sont pas configurés
-        // C'est normal en développement
+        console.warn(
+          "[PolymarketBuilder] Missing POLY_BUILDER_API_KEY or POLY_BUILDER_SECRET. Builder client cannot be initialized."
+        )
         return
       }
 
@@ -110,8 +111,7 @@ class PolymarketBuilderClient {
 
       this.initialized = true
     } catch (error) {
-      // Ne pas throw l'erreur pour ne pas bloquer le démarrage
-      // L'initialisation peut être retentée plus tard
+      console.error("[PolymarketBuilder] Failed to initialize CLOB client:", error)
       this.initialized = false
     }
   }
@@ -131,7 +131,7 @@ class PolymarketBuilderClient {
     }
 
     if (!this.clobClient) {
-      throw new Error("Failed to initialize CLOB client")
+      throw new Error("Failed to initialize CLOB client (builder credentials missing or initialization error)")
     }
 
     try {
@@ -184,7 +184,7 @@ class PolymarketBuilderClient {
     }
 
     if (!this.clobClient || !this.provider) {
-      throw new Error("Failed to initialize CLOB client")
+      throw new Error("Failed to initialize CLOB client (builder credentials missing or initialization error)")
     }
 
     try {
@@ -244,7 +244,7 @@ class PolymarketBuilderClient {
     }
 
     if (!this.clobClient || !this.provider) {
-      throw new Error("Failed to initialize CLOB client")
+      throw new Error("Failed to initialize CLOB client (builder credentials missing or initialization error)")
     }
 
     try {
