@@ -11,6 +11,7 @@ const GAMMA_MARKET_SLUG_ENDPOINT = `${POLYMARKET_GAMMA_HOST}/markets/slug`
 
 class PolymarketCLOB {
   private baseURL: string
+  private missingMarketNotified: Set<string> = new Set()
 
   constructor() {
     this.baseURL = POLYMARKET_CLOB_API_URL
@@ -127,6 +128,14 @@ class PolymarketCLOB {
       const completeMarket = await this.fetchMarketBySlug(slug)
 
       if (!completeMarket) {
+        if (!this.missingMarketNotified.has(slug)) {
+          this.missingMarketNotified.add(slug)
+          console.info(
+            `[Polymarket] Market missing for slug ${slug}. No active Up/Down 15m market detected for ${crypto} at ${new Date(
+              candleTimestamp
+            ).toISOString()}`
+          )
+        }
         // Marché non trouvé - mettre en cache avec expiration courte pour éviter trop de requêtes
         await redis.set(cacheKey, "null", { ex: 60 }) // Cache null pour 1 minute
         return null
@@ -134,6 +143,12 @@ class PolymarketCLOB {
 
       // Vérifier que le marché est actif et non fermé
       if (!completeMarket.active || completeMarket.closed) {
+        if (!this.missingMarketNotified.has(`${slug}-inactive`)) {
+          this.missingMarketNotified.add(`${slug}-inactive`)
+          console.warn(
+            `[Polymarket] Market ${slug} found but inactive (active=${completeMarket.active}, closed=${completeMarket.closed}).`
+          )
+        }
         // Marché inactif - mettre en cache avec expiration courte
         await redis.set(cacheKey, "null", { ex: 300 }) // Cache null pour 5 minutes
         return null
