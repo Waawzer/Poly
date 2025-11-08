@@ -6,6 +6,15 @@ import redis, { CACHE_KEYS } from "./redis"
 const POLYMARKET_CLOB_API_URL = process.env.POLYMARKET_CLOB_API_URL || process.env.POLYMARKET_CLOB_HOST || "https://clob.polymarket.com"
 const POLYMARKET_SUBGRAPH_URL = process.env.POLYMARKET_SUBGRAPH_URL || "https://api.thegraph.com/subgraphs/name/polymarket/matic"
 const POLYMARKET_GAMMA_HOST = "https://gamma-api.polymarket.com"
+const gammaClient = axios.create({
+  baseURL: POLYMARKET_GAMMA_HOST,
+  timeout: 10000,
+  headers: {
+    "User-Agent": "PolyEngine/1.0 (+https://poly-green.vercel.app)",
+    Accept: "application/json",
+  },
+})
+
 const GAMMA_EVENT_SLUG_ENDPOINT = `${POLYMARKET_GAMMA_HOST}/events/slug`
 const GAMMA_MARKET_SLUG_ENDPOINT = `${POLYMARKET_GAMMA_HOST}/markets/slug`
 
@@ -42,7 +51,7 @@ class PolymarketCLOB {
     try {
       // Step 1: Get event data (active, closed status)
       const eventUrl = `${GAMMA_EVENT_SLUG_ENDPOINT}/${slug}`
-      const eventResp = await axios.get(eventUrl, { timeout: 10000 })
+      const eventResp = await gammaClient.get(eventUrl)
 
       if (eventResp.status === 404) {
         return null
@@ -52,7 +61,7 @@ class PolymarketCLOB {
 
       // Step 2: Get market data (clobTokenIds)
       const marketUrl = `${GAMMA_MARKET_SLUG_ENDPOINT}/${slug}`
-      const marketResp = await axios.get(marketUrl, { timeout: 10000 })
+      const marketResp = await gammaClient.get(marketUrl)
 
       if (marketResp.status === 404) {
         return null
@@ -80,14 +89,28 @@ class PolymarketCLOB {
         return null
       }
 
+      const active =
+        typeof eventData.active === "boolean"
+          ? eventData.active
+          : typeof marketData.active === "boolean"
+          ? marketData.active
+          : false
+
+      const closed =
+        typeof eventData.closed === "boolean"
+          ? eventData.closed
+          : typeof marketData.closed === "boolean"
+          ? marketData.closed
+          : false
+
       // Create complete market structure
       return {
         id: marketData.id,
         question: marketData.question || "",
         conditionId: marketData.conditionId,
         slug: slug,
-        active: eventData.active || false,
-        closed: eventData.closed || true,
+        active,
+        closed,
         title: eventData.title || "",
         description: eventData.description || "",
         liquidity: marketData.liquidity || "0",
@@ -103,7 +126,14 @@ class PolymarketCLOB {
       if (error.response?.status === 404) {
         return null
       }
-      console.error(`Error fetching market by slug ${slug}:`, error.message)
+      if (error.response) {
+        console.error(
+          `Error fetching market by slug ${slug}: status=${error.response.status}`,
+          error.response.data
+        )
+      } else {
+        console.error(`Error fetching market by slug ${slug}:`, error.message)
+      }
       return null
     }
   }
@@ -157,6 +187,14 @@ class PolymarketCLOB {
 
       // Vérifier que le marché est actif et non fermé
       if (!completeMarket.active || completeMarket.closed) {
+        console.warn(
+          `[Polymarket] Market ${slug} returned inactive status from Gamma`,
+          {
+            active: completeMarket.active,
+            closed: completeMarket.closed,
+            tokens: completeMarket.clobTokenIds,
+          }
+        )
         if (!this.missingMarketNotified.has(`${slug}-inactive`)) {
           this.missingMarketNotified.add(`${slug}-inactive`)
           console.warn(
