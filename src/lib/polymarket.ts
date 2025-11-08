@@ -120,10 +120,6 @@ class PolymarketCLOB {
       // Vérifier le cache
       const cached = await redis.get<string>(cacheKey)
       if (cached !== null) {
-        // Si le cache contient "null" (string), retourner null
-        if (cached === "null") {
-          return null
-        }
         // Sinon, parser le JSON
         try {
           const parsed = JSON.parse(cached)
@@ -147,8 +143,6 @@ class PolymarketCLOB {
             ).toISOString()}`
           )
         }
-        // Marché non trouvé - mettre en cache avec expiration courte pour éviter trop de requêtes
-        await redis.set(cacheKey, "null", { ex: 5 }) // Cache null pour 5 secondes
         return null
       }
 
@@ -160,8 +154,6 @@ class PolymarketCLOB {
             `[Polymarket] Market ${slug} found but inactive (active=${completeMarket.active}, closed=${completeMarket.closed}).`
           )
         }
-        // Marché inactif - mettre en cache avec expiration courte
-        await redis.set(cacheKey, "null", { ex: 30 }) // Cache null pour 30 secondes
         return null
       }
 
