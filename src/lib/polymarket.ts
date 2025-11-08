@@ -68,7 +68,7 @@ class PolymarketCLOB {
         try {
           clobTokenIds = JSON.parse(clobTokenIdsRaw)
         } catch (parseError) {
-          console.error(`Failed to parse clobTokenIds JSON: ${parseError}`)
+          console.error(`Failed to parse clobTokenIds JSON for slug ${slug}: ${parseError}`)
           return null
         }
       } else if (Array.isArray(clobTokenIdsRaw)) {
@@ -76,6 +76,7 @@ class PolymarketCLOB {
       }
 
       if (clobTokenIds.length < 2) {
+        console.warn(`Slug ${slug} returned unexpected clobTokenIds payload`, clobTokenIdsRaw)
         return null
       }
 
@@ -142,12 +143,12 @@ class PolymarketCLOB {
           this.missingMarketNotified.add(slug)
           console.info(
             `[Polymarket] Market missing for slug ${slug}. No active Up/Down 15m market detected for ${crypto} at ${new Date(
-              candleTimestamp
+              normalizedTimestamp * 1000
             ).toISOString()}`
           )
         }
         // Marché non trouvé - mettre en cache avec expiration courte pour éviter trop de requêtes
-        await redis.set(cacheKey, "null", { ex: 60 }) // Cache null pour 1 minute
+        await redis.set(cacheKey, "null", { ex: 5 }) // Cache null pour 5 secondes
         return null
       }
 
@@ -160,9 +161,12 @@ class PolymarketCLOB {
           )
         }
         // Marché inactif - mettre en cache avec expiration courte
-        await redis.set(cacheKey, "null", { ex: 300 }) // Cache null pour 5 minutes
+        await redis.set(cacheKey, "null", { ex: 30 }) // Cache null pour 30 secondes
         return null
       }
+
+      this.missingMarketNotified.delete(slug)
+      this.missingMarketNotified.delete(`${slug}-inactive`)
 
       // Convertir au format MarketData
       const market: MarketData = {
@@ -175,6 +179,10 @@ class PolymarketCLOB {
           no: completeMarket.clobTokenIds[1] || "",
         },
       }
+
+      console.info(
+        `[Polymarket] Resolved market ${market.slug} (active=${market.active}, yes=${market.tokens.yes}, no=${market.tokens.no})`
+      )
 
       // Mettre en cache (1 heure)
       await redis.set(cacheKey, JSON.stringify(market), { ex: 3600 })

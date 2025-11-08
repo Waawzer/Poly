@@ -347,41 +347,45 @@ export class TimedStrategyRunner {
       return this.currentMarket
     }
 
-    const marketTimestamp = this.getMarketTimestampForCandle(candleTimestamp)
+    const candidateTimestamps = this.getCandidateMarketTimestamps(candleTimestamp)
 
-    try {
-      const market = await polymarketCLOB.getMarket(this.strategy.crypto, marketTimestamp)
-      if (!market) {
-        const slugTimestampSeconds =
-          marketTimestamp > 1e12 ? Math.floor(marketTimestamp / 1000) : marketTimestamp
-        console.debug(
-          `TimedStrategyRunner(${this.strategy.crypto}) no active market for slug timestamp ${slugTimestampSeconds}`
-      )
-        return null
-      }
+    for (const candidate of candidateTimestamps) {
+      try {
+        const market = await polymarketCLOB.getMarket(this.strategy.crypto, candidate)
+        if (!market) {
+          const slugTimestampSeconds =
+            candidate > 1e12 ? Math.floor(candidate / 1000) : candidate
+          console.debug(
+            `TimedStrategyRunner(${this.strategy.crypto}) no active market for slug timestamp ${slugTimestampSeconds}`
+          )
+          continue
+        }
 
-      if (!market.tokens?.yes || !market.tokens?.no) {
-        console.warn(
-          `TimedStrategyRunner(${this.strategy.crypto}) market ${market.id} missing token IDs`
+        if (!market.tokens?.yes || !market.tokens?.no) {
+          console.warn(
+            `TimedStrategyRunner(${this.strategy.crypto}) market ${market.id} missing token IDs`
+          )
+          continue
+        }
+
+        this.currentMarket = market
+        this.currentMarketTimestamp = candidate
+        return market
+      } catch (error) {
+        console.error(
+          `TimedStrategyRunner(${this.strategy.crypto}) error fetching market for timestamp ${candidate}:`,
+          error
         )
-        return null
       }
-
-      this.currentMarket = market
-      this.currentMarketTimestamp = marketTimestamp
-      return market
-    } catch (error) {
-      console.error(
-        `TimedStrategyRunner(${this.strategy.crypto}) error fetching market:`,
-        error
-      )
-      return null
     }
+
+    return null
   }
 
-  private getMarketTimestampForCandle(candleTimestamp: number): number {
+  private getCandidateMarketTimestamps(candleTimestamp: number): number[] {
     const fifteenMinutesMs = 15 * 60 * 1000
-    return candleTimestamp + fifteenMinutesMs
+    const nextCandleTimestamp = candleTimestamp + fifteenMinutesMs
+    return [nextCandleTimestamp, candleTimestamp]
   }
 
   private async executeTrade({
