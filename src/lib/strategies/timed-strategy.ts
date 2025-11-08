@@ -105,6 +105,7 @@ export class TimedStrategyRunner {
   private currentCandleTimestamp: number | null = null
   private candleOpenPrice: number | null = null
   private currentMarket: MarketData | null = null
+  private currentMarketTimestamp: number | null = null
   private orderPlacedThisCandle = false
   private initialized = false
 
@@ -131,6 +132,7 @@ export class TimedStrategyRunner {
     this.currentCandleTimestamp = null
     this.candleOpenPrice = null
     this.currentMarket = null
+    this.currentMarketTimestamp = null
     this.orderPlacedThisCandle = false
     this.initialized = false
     this.lastLoggedMinute = null
@@ -242,6 +244,7 @@ export class TimedStrategyRunner {
     this.currentCandleTimestamp = candleTimestamp
     this.candleOpenPrice = null
     this.currentMarket = null
+    this.currentMarketTimestamp = null
     this.orderPlacedThisCandle = false
     this.lastLoggedMinute = null
     this.lastWindowLogBucket = null
@@ -344,12 +347,14 @@ export class TimedStrategyRunner {
       return this.currentMarket
     }
 
+    const marketTimestamp = this.getMarketTimestampForCandle(candleTimestamp)
+
     try {
-      const market = await polymarketCLOB.getMarket(this.strategy.crypto, candleTimestamp)
+      const market = await polymarketCLOB.getMarket(this.strategy.crypto, marketTimestamp)
       if (!market) {
         console.debug(
-          `TimedStrategyRunner(${this.strategy.crypto}) no active market for candle ${candleTimestamp}`
-        )
+        `TimedStrategyRunner(${this.strategy.crypto}) no active market for slug timestamp ${marketTimestamp}`
+      )
         return null
       }
 
@@ -361,6 +366,7 @@ export class TimedStrategyRunner {
       }
 
       this.currentMarket = market
+      this.currentMarketTimestamp = marketTimestamp
       return market
     } catch (error) {
       console.error(
@@ -369,6 +375,11 @@ export class TimedStrategyRunner {
       )
       return null
     }
+  }
+
+  private getMarketTimestampForCandle(candleTimestamp: number): number {
+    const fifteenMinutesMs = 15 * 60 * 1000
+    return candleTimestamp + fifteenMinutesMs
   }
 
   private async executeTrade({
